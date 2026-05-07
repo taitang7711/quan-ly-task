@@ -1,0 +1,144 @@
+/* CSS Variables for theming and smoothness */
+:root {
+  --primary-gradient-start: #1E3C72;
+  --primary-gradient-end: #2A5298;
+  --glass-bg: rgba(255, 255, 255, 0.1);
+  --glass-border: rgba(255, 255, 255, 0.2);
+  --card-radius: 1rem;
+  --transition-speed: 0.2s;
+}
+
+/* Improved background with softer gradient */
+body {
+  background: linear-gradient(135deg, #f5f7fa 0%, #e9eef5 100%);
+  min-height: 100vh;
+  font-family: 'Inter', system-ui, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+/* Glassmorphism utility */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--card-radius);
+}
+
+/* Kanban column scroll and styling */
+.kanban-column {
+  max-height: calc(100vh - 250px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  border-radius: 1rem;
+  transition: all var(--transition-speed) ease;
+}
+
+.kanban-column:hover {
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 10px;
+  transition: background 0.2s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Gradient text utility */
+.gradient-text {
+  background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Enhanced card hover effect */
+.task-card {
+  transition: all 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+  cursor: pointer;
+}
+
+.task-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 25px -12px rgba(0, 0, 0, 0.15);
+}
+
+/* Smooth fade animations */
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+}
+
+/* Slide animations for router view */
+.slide-enter-active, .slide-leave-active {
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+.slide-enter-from {
+  transform: translateX(20px);
+  opacity: 0;
+}
+.slide-leave-to {
+  transform: translateX(-20px);
+  opacity: 0;
+}
+
+/* Draggable item animation */
+.draggable-item {
+  transition: transform 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+}
+
+/* Button hover effects */
+.v-btn {
+  transition: all 0.2s ease !important;
+}
+.v-btn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.02);
+}
+
+/* Smooth dialog appearance */
+.v-dialog {
+  animation: slideUp 0.25s ease-out;
+}
+
+/* Loading skeleton animation */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .kanban-column {
+    max-height: calc(100vh - 180px);
+  }
+  .glass {
+    backdrop-filter: blur(5px);
+  }
+}

@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: task-backend
+    restart: always
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./backend/.env
+    networks:
+      - task-network
+
+  frontend:
+    build: ./frontend
+    container_name: task-frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - task-network
+
+networks:
+  task-network:
+    driver: bridge
