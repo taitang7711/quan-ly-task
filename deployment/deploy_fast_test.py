@@ -174,7 +174,7 @@ def test_deployment(ssh):
         print_status("❌ Backend health check failed", RED)
         print_status(f"Backend response: {out[:200]}", YELLOW)
     # Check frontend
-    exit_code, out, err = run_sudo_cmd(ssh, "curl -s http://localhost")
+    exit_code, out, err = run_sudo_cmd(ssh, "curl -s http://localhost:8099")
     if "Task Manager" in out:
         print_status("✅ Frontend is healthy", GREEN)
     else:

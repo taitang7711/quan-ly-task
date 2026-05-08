@@ -7,6 +7,7 @@
       <v-btn to="/" text>Dashboard</v-btn>
       <v-btn to="/kanban" text>Kanban</v-btn>
       <v-btn to="/reports" text>Báo cáo</v-btn>
+      <v-btn to="/settings" text>Cài đặt AI</v-btn>
       <v-btn @click="openCategoryManager" text>Quản lý</v-btn>
 
       <v-text-field
@@ -81,6 +82,12 @@
             <v-icon>mdi-chart-line</v-icon>
           </template>
           <v-list-item-title>Báo cáo</v-list-item-title>
+        </v-list-item>
+        <v-list-item to="/settings" @click="drawer = false">
+          <template v-slot:prepend>
+            <v-icon>mdi-cog</v-icon>
+          </template>
+          <v-list-item-title>Cài đặt AI</v-list-item-title>
         </v-list-item>
         <v-list-item @click="openCategoryManager">
           <template v-slot:prepend>

@@ -63,6 +63,13 @@ function toggleChat() {
   isOpen.value = !isOpen.value;
 }
 
+const props = defineProps({
+  taskId: {
+    type: Number,
+    default: null
+  }
+});
+
 async function sendMessage() {
   if (!inputMessage.value.trim()) return;
   const userMsg = { id: nextId++, role: 'user', content: inputMessage.value };
@@ -71,7 +78,11 @@ async function sendMessage() {
   inputMessage.value = '';
   loading.value = true;
   try {
-    const res = await axios.post('/ai/general', { prompt: userInput });
+    const payload = { prompt: userInput };
+    if (props.taskId) {
+      payload.task_id = props.taskId;
+    }
+    const res = await axios.post('/ai/general', payload);
     const aiMsg = { id: nextId++, role: 'ai', content: res.data.result.suggestion };
     messages.value.push(aiMsg);
   } catch (err) {
