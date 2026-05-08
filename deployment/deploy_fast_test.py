@@ -167,14 +167,16 @@ def test_deployment(ssh):
     """Simple health checks."""
     print_status("Testing deployment...")
     # Check backend
-    exit_code, out, err = run_sudo_cmd(ssh, "curl -s http://localhost:5000/api/tasks/stats/summary")
+    stdin, stdout, stderr = ssh.exec_command("curl -s http://localhost:5000/api/tasks/stats/summary")
+    out = stdout.read().decode()
     if "total_tasks" in out:
         print_status("✅ Backend is healthy", GREEN)
     else:
         print_status("❌ Backend health check failed", RED)
         print_status(f"Backend response: {out[:200]}", YELLOW)
     # Check frontend
-    exit_code, out, err = run_sudo_cmd(ssh, "curl -s http://localhost:8099")
+    stdin, stdout, stderr = ssh.exec_command("curl -s http://localhost:8099")
+    out = stdout.read().decode()
     if "Task Manager" in out:
         print_status("✅ Frontend is healthy", GREEN)
     else:
