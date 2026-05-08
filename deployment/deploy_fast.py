@@ -153,8 +153,13 @@ def docker_compose_up(ssh, force_rebuild=False, backend_only=False, frontend_onl
         build_cmd += " backend"
     elif frontend_only:
         build_cmd += " frontend"
+    # Stop and remove old containers first
+    print_status("Stopping old containers...")
+    run_sudo_cmd(ssh, f"bash -c 'cd {REMOTE_DIR} && docker-compose down'")
     # Use sudo for docker commands
+    print_status("Building containers...")
     run_sudo_cmd(ssh, f"bash -c 'cd {REMOTE_DIR} && {build_cmd}'")
+    print_status("Starting containers...")
     run_sudo_cmd(ssh, f"bash -c 'cd {REMOTE_DIR} && docker-compose up -d'")
     print_status("Docker containers started.", GREEN)
 
