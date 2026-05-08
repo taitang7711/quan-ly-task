@@ -94,10 +94,16 @@ def commit_and_push():
 
 def run_sudo_cmd(ssh, cmd):
     """Run a command with sudo using echo to provide password."""
-    full_cmd = f'echo "{SERVER_PASSWORD}" | sudo -S -p "" {cmd}'
+    # Use -S to read password from stdin, and -k to ignore timestamp
+    full_cmd = f'echo "{SERVER_PASSWORD}" | sudo -S -k {cmd}'
+    print_status(f"Running sudo command: {cmd}", YELLOW)
     stdin, stdout, stderr = ssh.exec_command(full_cmd)
     exit_status = stdout.channel.recv_exit_status()
-    return exit_status, stdout.read().decode(), stderr.read().decode()
+    out = stdout.read().decode()
+    err = stderr.read().decode()
+    if exit_status != 0:
+        print_status(f"Command failed with code {exit_status}: {err}", RED)
+    return exit_status, out, err
 
 def install_dependencies(ssh):
     """Install git, docker, docker-compose on remote server."""
