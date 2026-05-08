@@ -15,6 +15,14 @@ import paramiko
 import time
 from scp import SCPClient
 
+# Fix Windows console encoding for Unicode
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
+# Fix Windows console encoding for Unicode
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
 # Configuration
 SERVER_IP = "192.168.0.110"
 SERVER_USER = "taitang96"
@@ -24,7 +32,7 @@ REMOTE_DIR = "/home/taitang96/task-app"
 GITHUB_REPO_URL = None  # Will be detected from local git remote
 GITHUB_TOKEN = ""
 
-# Color codes for output
+# Color codes for output (force ANSI even on Windows)
 GREEN = "\033[92m"
 RED = "\033[91m"
 YELLOW = "\033[93m"
@@ -136,7 +144,7 @@ def clone_or_pull_repo(ssh):
     else:
         print_status("Pulling latest changes...")
         ssh.exec_command(f"cd {REMOTE_DIR} && git pull")
-    
+
     # Create .env file from example if it doesn't exist
     print_status("Setting up environment file...")
     ssh.exec_command(f"cd {REMOTE_DIR}/backend && if [ ! -f .env ]; then cp .env.example .env; fi")
@@ -170,17 +178,17 @@ def test_deployment(ssh):
     stdin, stdout, stderr = ssh.exec_command("curl -s http://localhost:5000/api/tasks/stats/summary")
     out = stdout.read().decode()
     if "total_tasks" in out:
-        print_status("✅ Backend is healthy", GREEN)
+        print_status("[OK] Backend is healthy", GREEN)
     else:
-        print_status("❌ Backend health check failed", RED)
+        print_status("[FAIL] Backend health check failed", RED)
         print_status(f"Backend response: {out[:200]}", YELLOW)
     # Check frontend
     stdin, stdout, stderr = ssh.exec_command("curl -s http://localhost:8099")
     out = stdout.read().decode()
     if "Task Manager" in out:
-        print_status("✅ Frontend is healthy", GREEN)
+        print_status("[OK] Frontend is healthy", GREEN)
     else:
-        print_status("❌ Frontend health check failed", RED)
+        print_status("[FAIL] Frontend health check failed", RED)
         print_status(f"Frontend response: {out[:200]}", YELLOW)
 
 def main():
