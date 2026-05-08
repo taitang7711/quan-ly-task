@@ -92,19 +92,26 @@ def commit_and_push():
         sys.exit(1)
     print_status("Push successful.", GREEN)
 
+def run_sudo_cmd(ssh, cmd):
+    """Run a command with sudo using echo to provide password."""
+    full_cmd = f'echo "{SERVER_PASSWORD}" | sudo -S -p "" {cmd}'
+    stdin, stdout, stderr = ssh.exec_command(full_cmd)
+    exit_status = stdout.channel.recv_exit_status()
+    return exit_status, stdout.read().decode(), stderr.read().decode()
+
 def install_dependencies(ssh):
     """Install git, docker, docker-compose on remote server."""
     print_status("Installing dependencies on server...")
     # Update & install git
-    ssh.exec_command("sudo apt-get update -y")
-    ssh.exec_command("sudo apt-get install -y git")
+    run_sudo_cmd(ssh, "apt-get update -y")
+    run_sudo_cmd(ssh, "apt-get install -y git")
     # Install docker
     ssh.exec_command("curl -fsSL https://get.docker.com -o get-docker.sh")
-    ssh.exec_command("sudo sh get-docker.sh")
-    ssh.exec_command("sudo usermod -aG docker $USER")
+    run_sudo_cmd(ssh, "sh get-docker.sh")
+    run_sudo_cmd(ssh, "usermod -aG docker $USER")
     # Install docker-compose
-    ssh.exec_command("sudo curl -L \"https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)\" -o /usr/local/bin/docker-compose")
-    ssh.exec_command("sudo chmod +x /usr/local/bin/docker-compose")
+    run_sudo_cmd(ssh, "curl -L \"https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)\" -o /usr/local/bin/docker-compose")
+    run_sudo_cmd(ssh, "chmod +x /usr/local/bin/docker-compose")
     print_status("Dependencies installed.", GREEN)
 
 def clone_or_pull_repo(ssh):
@@ -135,25 +142,28 @@ def docker_compose_up(ssh, force_rebuild=False, backend_only=False, frontend_onl
         build_cmd += " backend"
     elif frontend_only:
         build_cmd += " frontend"
-    ssh.exec_command(f"{base_cmd} && {build_cmd}")
-    ssh.exec_command(f"{base_cmd} && docker-compose up -d")
+    # Use sudo for docker commands
+    run_sudo_cmd(ssh, f"bash -c 'cd {REMOTE_DIR} && {build_cmd}'")
+    run_sudo_cmd(ssh, f"bash -c 'cd {REMOTE_DIR} && docker-compose up -d'")
     print_status("Docker containers started.", GREEN)
 
 def test_deployment(ssh):
     """Simple health checks."""
     print_status("Testing deployment...")
     # Check backend
-    stdin, stdout, stderr = ssh.exec_command("curl -s http://localhost:5000/api/tasks/stats/summary")
-    if "total_tasks" in stdout.read().decode():
+    exit_code, out, err = run_sudo_cmd(ssh, "curl -s http://localhost:5000/api/tasks/stats/summary")
+    if "total_tasks" in out:
         print_status("✅ Backend is healthy", GREEN)
     else:
         print_status("❌ Backend health check failed", RED)
+        print_status(f"Backend response: {out[:200]}", YELLOW)
     # Check frontend
-    stdin, stdout, stderr = ssh.exec_command("curl -s http://localhost")
-    if "Task Manager" in stdout.read().decode():
+    exit_code, out, err = run_sudo_cmd(ssh, "curl -s http://localhost")
+    if "Task Manager" in out:
         print_status("✅ Frontend is healthy", GREEN)
     else:
         print_status("❌ Frontend health check failed", RED)
+        print_status(f"Frontend response: {out[:200]}", YELLOW)
 
 def main():
     parser = argparse.ArgumentParser()
