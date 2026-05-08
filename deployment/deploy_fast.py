@@ -136,6 +136,10 @@ def clone_or_pull_repo(ssh):
     else:
         print_status("Pulling latest changes...")
         ssh.exec_command(f"cd {REMOTE_DIR} && git pull")
+    
+    # Create .env file from example if it doesn't exist
+    print_status("Setting up environment file...")
+    ssh.exec_command(f"cd {REMOTE_DIR} && if [ ! -f backend/.env ]; then cp backend/.env.example backend/.env; fi")
     print_status("Repository ready.", GREEN)
 
 def docker_compose_up(ssh, force_rebuild=False, backend_only=False, frontend_only=False):
