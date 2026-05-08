@@ -78,7 +78,7 @@ if (process.env.NODE_ENV !== 'test') {
   startReportScheduler(io);
 }
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 // Only listen if not in test mode
 if (process.env.NODE_ENV !== 'test') {
   server.listen(PORT, () => {
