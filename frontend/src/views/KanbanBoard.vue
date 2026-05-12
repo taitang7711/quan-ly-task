@@ -14,7 +14,6 @@
             </v-tab>
           </v-tabs>
 
-          <!-- Nested Subcategory Tabs -->
           <div v-if="selectedCategory" class="subcategory-tree mt-1">
             <template v-for="sub in selectedCategory.subcategories" :key="sub.id">
               <div
@@ -61,40 +60,43 @@
                 </div>
               </div>
 
+              <!-- VueDraggable column -->
               <draggable
                 :list="getColumnList(column.name)"
                 group="tasks"
                 item-key="id"
-                @end="(evt) => onDragEnd(evt, column.name)"
+                @change="(evt) => onDragChange(evt, column.name)"
                 animation="250"
                 class="min-h-[400px] space-y-3"
                 ghost-class="dragging-ghost"
               >
                 <template #item="{ element: item }">
-                  <TaskCard
-                    v-if="item.__type === 'task'"
-                    :task="item"
-                    @click="openWorkItemModal(item, 'task')"
-                  />
-                  <v-card
-                    v-else
-                    class="pa-3 rounded-xl hover-lift cursor-pointer"
-                    @click="openWorkItemModal(item, 'todo')"
-                  >
-                    <div class="flex items-start gap-2">
-                      <v-icon size="16" color="primary" class="mt-0.5">mdi-checkbox-marked-circle-outline</v-icon>
-                      <div class="flex-1 min-w-0">
-                        <div class="text-sm font-medium truncate">{{ item.title }}</div>
-                        <div class="flex items-center gap-1.5 mt-1">
-                          <v-chip v-if="item.hash_task" size="x-small" variant="outlined" class="font-mono font-bold" color="primary">
-                            <v-icon size="10" class="mr-0.5">mdi-pound</v-icon>
-                            {{ item.hash_task }}
-                          </v-chip>
-                          <span class="text-xs text-gray-400">Todo</span>
+                  <div class="draggable-item-wrapper">
+                    <TaskCard
+                      v-if="item.__type === 'task'"
+                      :task="item"
+                      @click="openWorkItemModal(item, 'task')"
+                    />
+                    <v-card
+                      v-else
+                      class="pa-3 rounded-xl hover-lift cursor-pointer"
+                      @click="openWorkItemModal(item, 'todo')"
+                    >
+                      <div class="flex items-start gap-2">
+                        <v-icon size="16" color="primary" class="mt-0.5">mdi-checkbox-marked-circle-outline</v-icon>
+                        <div class="flex-1 min-w-0">
+                          <div class="text-sm font-medium truncate">{{ item.title }}</div>
+                          <div class="flex items-center gap-1.5 mt-1">
+                            <v-chip v-if="item.hash_task" size="x-small" variant="outlined" class="font-mono font-bold" color="primary">
+                              <v-icon size="10" class="mr-0.5">mdi-pound</v-icon>
+                              {{ item.hash_task }}
+                            </v-chip>
+                            <span class="text-xs text-gray-400">Todo</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </v-card>
+                    </v-card>
+                  </div>
                 </template>
               </draggable>
 
@@ -190,7 +192,6 @@ const newTaskTitle = reactive({});
 const adding = reactive({});
 
 const collapsedSubs = reactive(new Set());
-const activeSubTabParent = ref(null);
 
 const selectedCategory = computed(() => categories.value.find(c => c.id === activeCategory.value));
 
@@ -301,51 +302,61 @@ function updateLocalLists() {
   }
 }
 
-async function onDragEnd(event, newStatusName) {
-  const newIndex = event.newIndex;
-  if (newIndex === undefined || newIndex === null) return;
+// Handle vuedraggable @change event
+async function onDragChange(event, newStatusName) {
+  // The event has: { added, removed, moved }
+  // Each has: { element, newIndex, oldIndex }
+  const change = event.added || event.moved || event.removed;
+  if (!change) return;
 
-  // Get item from the destination list (vuedraggable already moved it)
-  const list = localLists[newStatusName] || [];
-  const item = list[newIndex];
-  if (!item) return;
+  const item = change.element;
+  if (!item || !item.id) return;
 
   const itemType = item.__type;
   const itemId = item.id;
 
   if (itemType === 'task') {
     try {
-      await taskStore.moveTask(itemId, newStatusName, newIndex);
-      show(`Đã di chuyển "${item.title}"`, 'success');
-      await loadData();
+      await taskStore.moveTask(itemId, newStatusName, change.newIndex || 0);
+      show(`Đã di chuyển task`, 'success');
+      await hardRefresh();
     } catch (err) {
-      show('Di chuyển thất bại', 'error');
-      await loadData();
+      show('Di chuyển task thất bại', 'error');
+      await hardRefresh();
     }
   } else if (itemType === 'todo') {
     const isDone = newStatusName === 'Hoàn thành';
     try {
       await todoStore.updateTodo(itemId, { is_done: isDone ? 1 : 0, status: newStatusName });
-      show(`Đã cập nhật todo "${item.title}"`, 'success');
-      await loadData();
+      show(`Đã cập nhật todo`, 'success');
+      await hardRefresh();
     } catch (err) {
       show('Cập nhật todo thất bại', 'error');
-      await loadData();
+      await hardRefresh();
     }
   }
 }
 
-async function loadData() {
-  await categoryStore.fetchCategories();
-  categories.value = categoryStore.categories;
-  if (categories.value.length && !activeCategory.value) {
-    activeCategory.value = categories.value[0].id;
+async function hardRefresh() {
+  // Fetch fresh data without calling store actions that auto-fetch
+  try {
+    await categoryStore.fetchCategories();
+    categories.value = categoryStore.categories;
+    if (categories.value.length && !activeCategory.value) {
+      activeCategory.value = categories.value[0].id;
+    }
+    await Promise.all([
+      taskStore.fetchTasks({ category_id: activeCategory.value }),
+      todoStore.fetchTodos(activeCategory.value),
+    ]);
+    updateLocalLists();
+  } catch (e) {
+    console.error('Refresh error:', e);
   }
-  await Promise.all([
-    taskStore.fetchTasks({ category_id: activeCategory.value }),
-    todoStore.fetchTodos(activeCategory.value),
-  ]);
-  updateLocalLists();
+}
+
+async function loadData() {
+  await hardRefresh();
 }
 
 function openWorkItemModal(item = null, type = 'task') {
@@ -374,7 +385,7 @@ async function quickAddTask(statusName) {
     newTaskTitle[statusName] = '';
     showAddForm[statusName] = false;
     show(`Đã thêm "${title}"`, 'success');
-    await loadData();
+    await hardRefresh();
   } catch (err) {
     show('Lỗi khi thêm task', 'error');
   } finally {
@@ -388,18 +399,18 @@ function cancelAdd(statusName) {
 }
 
 async function onItemSaved() {
-  await loadData();
+  await hardRefresh();
 }
 
-socket.on('task_updated', () => loadData());
-socket.on('task_created', () => loadData());
-socket.on('task_deleted', () => loadData());
-socket.on('todo_updated', () => loadData());
-socket.on('todo_created', () => loadData());
-socket.on('todo_deleted', () => loadData());
-socket.on('category_status_created', () => loadData());
-socket.on('category_status_updated', () => loadData());
-socket.on('category_status_deleted', () => loadData());
+socket.on('task_updated', () => hardRefresh());
+socket.on('task_created', () => hardRefresh());
+socket.on('task_deleted', () => hardRefresh());
+socket.on('todo_updated', () => hardRefresh());
+socket.on('todo_created', () => hardRefresh());
+socket.on('todo_deleted', () => hardRefresh());
+socket.on('category_status_created', () => hardRefresh());
+socket.on('category_status_updated', () => hardRefresh());
+socket.on('category_status_deleted', () => hardRefresh());
 
 onMounted(() => {
   loadData();
@@ -474,5 +485,8 @@ watch(activeSubcategory, () => updateLocalLists());
 }
 .sub-tab-child {
   border-left: 2px solid rgba(30, 60, 114, 0.15);
+}
+.draggable-item-wrapper {
+  /* Ensures vuedraggable has a stable DOM node to track */
 }
 </style>
