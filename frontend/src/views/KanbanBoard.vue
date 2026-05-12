@@ -62,6 +62,42 @@
                 <v-icon size="36" class="mb-2">mdi-inbox-outline</v-icon>
                 <span class="text-xs">Trống</span>
               </div>
+
+              <!-- Inline quick add -->
+              <div class="mt-2 px-1">
+                <div v-if="showAddForm[column.status]" class="inline-add-form">
+                  <v-text-field
+                    v-model="newTaskTitle[column.status]"
+                    placeholder="Nhập tiêu đề task..."
+                    hide-details
+                    variant="outlined"
+                    density="compact"
+                    @keyup.enter="quickAddTask(column.status)"
+                    @keyup.escape="cancelAdd(column.status)"
+                    autofocus
+                  />
+                  <div class="flex gap-1 mt-1">
+                    <v-btn size="x-small" color="primary" @click="quickAddTask(column.status)" :loading="adding[column.status]">
+                      <v-icon size="14" class="mr-0.5">mdi-plus</v-icon>
+                      Thêm
+                    </v-btn>
+                    <v-btn size="x-small" variant="text" @click="cancelAdd(column.status)">
+                      Hủy
+                    </v-btn>
+                  </div>
+                </div>
+                <v-btn
+                  v-else
+                  size="small"
+                  variant="tonal"
+                  block
+                  class="mt-1 text-xs add-task-btn"
+                  @click="showAddForm[column.status] = true"
+                >
+                  <v-icon size="14" class="mr-1">mdi-plus-circle-outline</v-icon>
+                  Thêm nhanh
+                </v-btn>
+              </div>
             </div>
           </div>
         </div>
@@ -83,7 +119,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, reactive, computed, onMounted, watch } from 'vue';
 import AppBar from '../components/AppBar.vue';
 import TaskCard from '../components/TaskCard.vue';
 import TaskModal from '../components/TaskModal.vue';
@@ -108,6 +144,10 @@ const localTasks = ref({
   review: [],
   done: []
 });
+
+const showAddForm = reactive({ todo: false, in_progress: false, review: false, done: false });
+const newTaskTitle = reactive({ todo: '', in_progress: '', review: '', done: '' });
+const adding = reactive({ todo: false, in_progress: false, review: false, done: false });
 
 const columns = [
   { status: 'todo', title: 'Cần làm', color: '#1E3C72' },
@@ -190,6 +230,33 @@ function openCreateModal() {
   taskModalVisible.value = true;
 }
 
+async function quickAddTask(status) {
+  const title = newTaskTitle[status]?.trim();
+  if (!title) return;
+  adding[status] = true;
+  try {
+    await taskStore.createTask({
+      title,
+      status,
+      category_id: activeCategory.value || null,
+      subcategory_id: activeSubcategory.value || null,
+    });
+    newTaskTitle[status] = '';
+    showAddForm[status] = false;
+    updateLocalTasks();
+    show(`Đã thêm "${title}"`, 'success');
+  } catch (err) {
+    show('Lỗi khi thêm task', 'error');
+  } finally {
+    adding[status] = false;
+  }
+}
+
+function cancelAdd(status) {
+  showAddForm[status] = false;
+  newTaskTitle[status] = '';
+}
+
 async function onTaskSaved() {
   await loadData();
 }
@@ -245,6 +312,14 @@ watch(activeSubcategory, () => updateLocalTasks());
 
 :deep(.sortable-ghost) {
   opacity: 0.3;
+}
+
+.add-task-btn {
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+.add-task-btn:hover {
+  opacity: 1;
 }
 
 .category-tabs :deep(.v-tab) {
