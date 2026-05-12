@@ -263,10 +263,10 @@ async function saveSubcategory() {
   try {
     const data = { name: subForm.value.name, category_id: subForm.value.category_id };
     if (editingSub.value) {
-      await axios.put(`/api/subcategories/${editingSub.value.id}`, data);
+      await axios.put(`/subcategories/${editingSub.value.id}`, data);
       show('Đã cập nhật danh mục con', 'success');
     } else {
-      await axios.post('/api/subcategories', data);
+      await axios.post('/subcategories', data);
       show('Đã tạo danh mục con', 'success');
     }
     subDialog.value = false;
@@ -279,7 +279,7 @@ async function saveSubcategory() {
 
 async function deleteSubcategory(id) {
   try {
-    await axios.delete(`/api/subcategories/${id}`);
+    await axios.delete(`/subcategories/${id}`);
     await loadData();
     emit('updated');
     show('Đã xóa danh mục con', 'success');
