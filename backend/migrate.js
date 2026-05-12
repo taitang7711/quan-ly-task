@@ -92,9 +92,8 @@ async function migrate() {
       task_id INT DEFAULT NULL,
       prompt TEXT,
       response JSON DEFAULT NULL,
-      type VARCHAR(50) DEFAULT 'general',
+      type ENUM('breakdown','priority','suggest','blocker','general','summarize','report_summary') DEFAULT 'general',
       model_used VARCHAR(100) DEFAULT NULL,
-      cost DECIMAL(10,6) DEFAULT NULL,
       latency_ms INT DEFAULT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
@@ -130,7 +129,8 @@ async function migrate() {
       sent_at TIMESTAMP NULL DEFAULT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-    ) ENGINE=InnoDB`
+    ) ENGINE=InnoDB`,
+
   ];
 
   for (const tableSQL of tables) {

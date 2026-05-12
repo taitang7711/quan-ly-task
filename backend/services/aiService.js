@@ -84,7 +84,11 @@ async function callLLM(pool, userId, prompt, systemPrompt = null, options = {}) 
           system: systemMsg,
           messages: [{ role: 'user', content: prompt }]
         });
-        response = msg.content[0].text;
+        response = '';
+        for (const block of msg.content) {
+          if (block.type === 'text') { response += block.text; }
+        }
+        if (!response) response = msg.content[0]?.text || JSON.stringify(msg.content);
         break;
         
       case 'google':
