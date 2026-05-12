@@ -92,10 +92,29 @@ async function migrate() {
       task_id INT DEFAULT NULL,
       prompt TEXT,
       response JSON DEFAULT NULL,
-      type ENUM('breakdown','priority','suggest','blocker','general') DEFAULT 'general',
+      type VARCHAR(50) DEFAULT 'general',
+      model_used VARCHAR(100) DEFAULT NULL,
+      cost DECIMAL(10,6) DEFAULT NULL,
+      latency_ms INT DEFAULT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
       FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB`,
+
+    `CREATE TABLE IF NOT EXISTS ai_config (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NULL COMMENT 'NULL for global default, otherwise user-specific config',
+      provider VARCHAR(50) NOT NULL DEFAULT 'openai',
+      model_name VARCHAR(100) NOT NULL DEFAULT 'gpt-3.5-turbo',
+      api_key_encrypted VARCHAR(500) NOT NULL DEFAULT '',
+      base_url VARCHAR(255) NULL,
+      temperature DECIMAL(2,1) DEFAULT 0.7,
+      max_tokens INT DEFAULT 1000,
+      is_active BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE KEY unique_user_config (user_id)
     ) ENGINE=InnoDB`,
 
     `CREATE TABLE IF NOT EXISTS reports (

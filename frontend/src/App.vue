@@ -8,17 +8,22 @@
       </router-view>
     </v-main>
     <v-progress-linear v-if="isLoading" indeterminate color="primary" class="global-loading" />
+    <AIChat v-if="showAIChat" />
     <ToastContainer />
   </v-app>
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
+import { useAuthStore } from './stores/auth';
 import ToastContainer from './components/ToastContainer.vue';
+import AIChat from './components/AIChat.vue';
 
 const router = useRouter();
+const authStore = useAuthStore();
 const isLoading = ref(false);
+const showAIChat = computed(() => authStore.isAuthenticated);
 
 router.beforeEach((to, from, next) => {
   isLoading.value = true;

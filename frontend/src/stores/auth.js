@@ -12,6 +12,19 @@ export const useAuthStore = defineStore('auth', {
     currentUser: (state) => state.user,
   },
   actions: {
+    async init() {
+      if (this.token) {
+        axios.defaults.headers.common['Authorization'] = `Bearer ${this.token}`;
+        try {
+          await this.fetchMe();
+        } catch {
+          this.token = null;
+          this.user = null;
+          localStorage.removeItem('token');
+          delete axios.defaults.headers.common['Authorization'];
+        }
+      }
+    },
     async register(username, email, password) {
       const response = await axios.post('/auth/register', { username, email, password });
       this.token = response.data.token;
