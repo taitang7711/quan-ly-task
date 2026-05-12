@@ -471,6 +471,16 @@ async function migrate() {
     if (!e.message.includes('Duplicate column')) throw e;
   }
 
+  // Todos: add board_position for Kanban ordering
+  try {
+    await connection.query(
+      'ALTER TABLE todos ADD COLUMN board_position INT DEFAULT 0 AFTER sort_order'
+    );
+    console.log('  ✓ Added board_position to todos');
+  } catch (e) {
+    if (!e.message.includes('Duplicate column')) throw e;
+  }
+
   // Todos: add comment support (todo_comments table)
   try {
     await connection.query(
