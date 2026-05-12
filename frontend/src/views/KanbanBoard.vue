@@ -302,14 +302,16 @@ function updateLocalLists() {
 }
 
 async function onDragEnd(event, newStatusName) {
-  const itemId = event.item.__draggable_context.element.id;
-  const itemType = event.item.__draggable_context.element.__type;
-  if (!itemId) return;
   const newIndex = event.newIndex;
+  if (newIndex === undefined || newIndex === null) return;
 
+  // Get item from the destination list (vuedraggable already moved it)
   const list = localLists[newStatusName] || [];
-  const item = list.find(i => i.id === itemId);
+  const item = list[newIndex];
   if (!item) return;
+
+  const itemType = item.__type;
+  const itemId = item.id;
 
   if (itemType === 'task') {
     try {
