@@ -23,7 +23,7 @@
               <v-select v-model="formData.subcategory_id" :items="subcategories" item-title="name" item-value="id" label="Danh mục con" :disabled="!formData.category_id" />
             </v-col>
             <v-col cols="12" md="6">
-              <v-select v-model="formData.status" :items="statuses" label="Trạng thái" />
+              <v-select v-model="formData.status" :items="statusItems" label="Trạng thái" />
               <v-select v-model="formData.priority" :items="priorities" label="Độ ưu tiên" />
               <v-select v-model="formData.assignee_id" :items="users" item-title="username" item-value="id" label="Người thực hiện" />
               <v-text-field v-model="formData.due_date" label="Hạn" type="datetime-local" />
@@ -158,7 +158,7 @@ const newComment = ref('');
 const activeTab = ref('comments');
 const confirmDeleteDialog = ref(false);
 
-const statuses = ['todo', 'in_progress', 'review', 'done'];
+const statusItems = ref([]);
 const priorities = ['low', 'medium', 'high', 'urgent'];
 
 const formData = ref({
@@ -188,8 +188,13 @@ watch(() => formData.value.category_id, async (catId) => {
   if (catId) {
     const cat = categories.value.find(c => c.id === catId);
     subcategories.value = cat?.subcategories || [];
+    statusItems.value = cat?.statuses?.map(s => ({ title: s.name, value: s.name })) || [];
+    if (!isEdit.value && statusItems.value.length) {
+      formData.value.status = statusItems.value[0].value;
+    }
   } else {
     subcategories.value = [];
+    statusItems.value = [];
   }
 });
 
@@ -279,19 +284,34 @@ function close() {
   activeTab.value = 'comments';
 }
 
+function loadStatusesForCategory(catId) {
+  if (catId) {
+    const cat = categories.value.find(c => c.id === catId);
+    statusItems.value = cat?.statuses?.map(s => ({ title: s.name, value: s.name })) || [];
+  } else {
+    statusItems.value = [];
+  }
+}
+
 watch(() => props.task, async (newTask) => {
   if (newTask) {
     formData.value = { ...newTask };
     if (newTask.due_date) {
       formData.value.due_date = new Date(newTask.due_date).toISOString().slice(0, 16);
     }
+    loadStatusesForCategory(newTask.category_id);
     await loadComments();
   } else {
+    const defaultCatId = categories.value[0]?.id || null;
     formData.value = {
-      title: '', description: '', category_id: categories.value[0]?.id || null,
-      subcategory_id: null, status: 'todo', priority: 'medium',
+      title: '', description: '', category_id: defaultCatId,
+      subcategory_id: null, status: '', priority: 'medium',
       assignee_id: null, due_date: null, estimated_hours: null,
     };
+    loadStatusesForCategory(defaultCatId);
+    if (statusItems.value.length) {
+      formData.value.status = statusItems.value[0].value;
+    }
   }
 }, { immediate: true });
 

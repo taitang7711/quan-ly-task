@@ -34,9 +34,11 @@
                 <v-select
                   v-model="config.provider"
                   :items="providers"
+                  item-title="title"
+                  item-value="value"
                   label="AI Provider"
                   required
-                  @change="onProviderChange"
+                  @update:model-value="onProviderChange"
                   class="mb-1"
                 />
 
@@ -60,10 +62,11 @@
                 />
 
                 <v-text-field
-                  v-if="config.provider === 'openai_compatible'"
                   v-model="config.base_url"
-                  label="Custom Base URL"
+                  label="Custom Base URL (optional)"
                   placeholder="http://localhost:8080/v1"
+                  hint="Leave empty to use provider's default endpoint"
+                  persistent-hint
                   class="mb-1"
                 />
 
@@ -161,10 +164,10 @@ const showApiKey = ref(false);
 const loadingHistory = ref(false);
 
 const providers = [
-  { text: 'OpenAI', value: 'openai' },
-  { text: 'Anthropic (Claude)', value: 'anthropic' },
-  { text: 'Google Gemini', value: 'google' },
-  { text: 'OpenAI Compatible (LocalAI, Ollama, etc.)', value: 'openai_compatible' }
+  { title: 'OpenAI', value: 'openai' },
+  { title: 'Anthropic (Claude)', value: 'anthropic' },
+  { title: 'Google Gemini', value: 'google' },
+  { title: 'OpenAI Compatible (LocalAI, Ollama, etc.)', value: 'openai_compatible' }
 ];
 
 const config = ref({
@@ -227,8 +230,8 @@ async function loadConfig() {
   try {
     const res = await axios.get('/ai/config');
     if (res.data.config) {
-      config.value = { ...config.value, ...res.data.config };
-      config.value.api_key = '';
+      const { id, user_id, created_at, updated_at, api_key_encrypted, ...formFields } = res.data.config;
+      config.value = { ...config.value, ...formFields, api_key: '' };
     }
   } catch (err) {
     console.error('Failed to load config:', err);

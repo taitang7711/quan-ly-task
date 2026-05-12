@@ -51,21 +51,25 @@ router.get('/', authenticateToken, async (req, res) => {
 
     const [tasks] = await pool.query(query, params);
 
-    // Group tasks by status for Kanban
-    const kanban = {
-      todo: [],
-      in_progress: [],
-      review: [],
-      done: []
-    };
-
+    // Group tasks by status for Kanban (dynamic)
+    const kanban = {};
     tasks.forEach(task => {
-      if (kanban[task.status]) {
-        kanban[task.status].push(task);
-      }
+      const key = task.status || 'todo';
+      if (!kanban[key]) kanban[key] = [];
+      kanban[key].push(task);
     });
 
-    res.json({ tasks, kanban });
+    // Also fetch category statuses for the frontend
+    let categoryStatuses = [];
+    if (category_id) {
+      const [statuses] = await pool.query(
+        'SELECT * FROM category_statuses WHERE category_id = ? ORDER BY sort_order',
+        [category_id]
+      );
+      categoryStatuses = statuses;
+    }
+
+    res.json({ tasks, kanban, categoryStatuses });
   } catch (err) {
     console.error('Get tasks error:', err);
     res.status(500).json({ error: 'Server error' });

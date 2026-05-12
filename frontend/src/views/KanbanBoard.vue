@@ -31,7 +31,7 @@
           <div class="kanban-board flex gap-4" style="min-width: min-content;">
             <div
               v-for="column in columns"
-              :key="column.status"
+              :key="column.name"
               class="kanban-column glass-strong w-80 flex-shrink-0 p-3 rounded-2xl"
             >
               <div class="flex items-center justify-between mb-4 px-1">
@@ -40,48 +40,65 @@
                   <span class="font-bold text-sm" :style="{ color: column.color }">{{ column.title }}</span>
                 </div>
                 <div class="text-xs font-bold bg-gray-100 text-gray-600 rounded-full px-2.5 py-1">
-                  {{ columnTasksCount[column.status] }}
+                  {{ columnTasksCount(column.name) }}
                 </div>
               </div>
 
               <draggable
-                :list="localTasks[column.status]"
+                :list="getColumnList(column.name)"
                 group="tasks"
                 item-key="id"
-                @end="(evt) => onDragEnd(evt, column.status)"
+                @end="(evt) => onDragEnd(evt, column.name)"
                 animation="250"
                 class="min-h-[400px] space-y-3"
                 ghost-class="dragging-ghost"
               >
-                <template #item="{ element: task }">
-                  <TaskCard :task="task" @click="openTaskModal(task)" />
+                <template #item="{ element: item }">
+                  <TaskCard
+                    v-if="item.__type === 'task'"
+                    :task="item"
+                    @click="openTaskModal(item)"
+                  />
+                  <v-card
+                    v-else
+                    class="pa-3 rounded-xl hover-lift cursor-pointer"
+                    @click="openTaskModal(item)"
+                  >
+                    <div class="flex items-center gap-2">
+                      <v-icon size="16" color="primary">mdi-checkbox-marked-circle-outline</v-icon>
+                      <div>
+                        <div class="text-sm font-medium">{{ item.title }}</div>
+                        <div class="text-xs text-gray-400 mt-0.5">Todo • {{ formatDate(item.created_at) }}</div>
+                      </div>
+                    </div>
+                  </v-card>
                 </template>
               </draggable>
 
-              <div v-if="localTasks[column.status]?.length === 0" class="flex flex-col items-center justify-center py-10 text-gray-400">
+              <div v-if="getColumnList(column.name)?.length === 0" class="flex flex-col items-center justify-center py-10 text-gray-400">
                 <v-icon size="36" class="mb-2">mdi-inbox-outline</v-icon>
                 <span class="text-xs">Trống</span>
               </div>
 
-              <!-- Inline quick add -->
+              <!-- Inline quick add (tạo task) -->
               <div class="mt-2 px-1">
-                <div v-if="showAddForm[column.status]" class="inline-add-form">
+                <div v-if="showAddForm[column.name]" class="inline-add-form">
                   <v-text-field
-                    v-model="newTaskTitle[column.status]"
+                    v-model="newTaskTitle[column.name]"
                     placeholder="Nhập tiêu đề task..."
                     hide-details
                     variant="outlined"
                     density="compact"
-                    @keyup.enter="quickAddTask(column.status)"
-                    @keyup.escape="cancelAdd(column.status)"
+                    @keyup.enter="quickAddTask(column.name)"
+                    @keyup.escape="cancelAdd(column.name)"
                     autofocus
                   />
                   <div class="flex gap-1 mt-1">
-                    <v-btn size="x-small" color="primary" @click="quickAddTask(column.status)" :loading="adding[column.status]">
+                    <v-btn size="x-small" color="primary" @click="quickAddTask(column.name)" :loading="adding[column.name]">
                       <v-icon size="14" class="mr-0.5">mdi-plus</v-icon>
                       Thêm
                     </v-btn>
-                    <v-btn size="x-small" variant="text" @click="cancelAdd(column.status)">
+                    <v-btn size="x-small" variant="text" @click="cancelAdd(column.name)">
                       Hủy
                     </v-btn>
                   </div>
@@ -92,7 +109,7 @@
                   variant="tonal"
                   block
                   class="mt-1 text-xs add-task-btn"
-                  @click="showAddForm[column.status] = true"
+                  @click="showAddForm[column.name] = true"
                 >
                   <v-icon size="14" class="mr-1">mdi-plus-circle-outline</v-icon>
                   Thêm nhanh
@@ -125,88 +142,163 @@ import TaskCard from '../components/TaskCard.vue';
 import TaskModal from '../components/TaskModal.vue';
 import draggable from 'vuedraggable';
 import { useTaskStore } from '../stores/task';
+import { useTodoStore } from '../stores/todo';
 import { useCategoryStore } from '../stores/category';
 import { useToast } from '../composables/useToast';
 import socket from '../utils/socket';
 
 const taskStore = useTaskStore();
+const todoStore = useTodoStore();
 const categoryStore = useCategoryStore();
 const { show } = useToast();
+
 const categories = ref([]);
 const activeCategory = ref(null);
 const activeSubcategory = ref(null);
 const taskModalVisible = ref(false);
 const selectedTask = ref(null);
 
-const localTasks = ref({
-  todo: [],
-  in_progress: [],
-  review: [],
-  done: []
-});
+// Dynamic columns - built from category_statuses
+const columns = ref([]);
+const localLists = reactive({});
 
-const showAddForm = reactive({ todo: false, in_progress: false, review: false, done: false });
-const newTaskTitle = reactive({ todo: '', in_progress: '', review: '', done: '' });
-const adding = reactive({ todo: false, in_progress: false, review: false, done: false });
-
-const columns = [
-  { status: 'todo', title: 'Cần làm', color: '#1E3C72' },
-  { status: 'in_progress', title: 'Đang làm', color: '#2A5298' },
-  { status: 'review', title: 'Xem lại', color: '#5DADE2' },
-  { status: 'done', title: 'Hoàn thành', color: '#10B981' },
-];
+const showAddForm = reactive({});
+const newTaskTitle = reactive({});
+const adding = reactive({});
 
 const selectedCategory = computed(() => categories.value.find(c => c.id === activeCategory.value));
 
-const columnTasksCount = computed(() => {
-  const counts = {};
-  for (const status of columns.map(c => c.status)) {
-    counts[status] = localTasks.value[status]?.length || 0;
-  }
-  return counts;
-});
-
-function updateLocalTasks() {
-  for (const status of columns.map(c => c.status)) {
-    let tasks = taskStore.kanban[status] || [];
-    if (activeCategory.value) {
-      tasks = tasks.filter(t => t.category_id === activeCategory.value);
+function initReactiveForStatuses(statuses) {
+  for (const s of statuses) {
+    if (!(s.name in localLists)) {
+      localLists[s.name] = [];
     }
-    if (activeSubcategory.value) {
-      tasks = tasks.filter(t => t.subcategory_id === activeSubcategory.value);
+    if (!(s.name in showAddForm)) {
+      showAddForm[s.name] = false;
     }
-    localTasks.value[status] = [...tasks];
+    if (!(s.name in newTaskTitle)) {
+      newTaskTitle[s.name] = '';
+    }
+    if (!(s.name in adding)) {
+      adding[s.name] = false;
+    }
   }
 }
 
-async function onDragEnd(event, newStatus) {
-  const taskId = event.item.__draggable_context.element.id;
-  if (!taskId) return;
-  const newIndex = event.newIndex;
-  let oldStatus = null;
-  let oldTask = null;
-  for (const status of columns.map(c => c.status)) {
-    const task = localTasks.value[status].find(t => t.id === taskId);
-    if (task) {
-      oldStatus = status;
-      oldTask = task;
-      break;
+function getColumnList(statusName) {
+  return localLists[statusName] || [];
+}
+
+function columnTasksCount(statusName) {
+  return getColumnList(statusName)?.length || 0;
+}
+
+function formatDate(date) {
+  if (!date) return '';
+  return new Date(date).toLocaleDateString('vi-VN', {
+    hour: '2-digit', minute: '2-digit',
+    day: '2-digit', month: '2-digit', year: 'numeric',
+  });
+}
+
+function updateLocalLists() {
+  const cat = selectedCategory.value;
+  const statuses = cat?.statuses || [];
+  if (statuses.length === 0) return;
+
+  columns.value = statuses.map(s => ({
+    name: s.name,
+    title: s.name,
+    color: s.color,
+  }));
+
+  initReactiveForStatuses(statuses);
+
+  // Reset all lists
+  for (const s of statuses) {
+    localLists[s.name] = [];
+  }
+
+  // Add tasks
+  const kanbanTasks = taskStore.kanban || {};
+  for (const [statusKey, tasks] of Object.entries(kanbanTasks)) {
+    let filtered = tasks || [];
+    if (activeCategory.value) {
+      filtered = filtered.filter(t => t.category_id === activeCategory.value);
+    }
+    if (activeSubcategory.value) {
+      filtered = filtered.filter(t => t.subcategory_id === activeSubcategory.value);
+    }
+    // Find matching column by status key (exact match or fallback)
+    const matchedColumn = statuses.find(s => s.name === statusKey);
+    if (matchedColumn) {
+      localLists[matchedColumn.name] = [
+        ...(localLists[matchedColumn.name] || []),
+        ...filtered.map(t => ({ ...t, __type: 'task' })),
+      ];
     }
   }
-  if (!oldTask) return;
-  const oldList = localTasks.value[oldStatus];
-  const oldIndex = oldList.findIndex(t => t.id === taskId);
-  if (oldIndex !== -1) oldList.splice(oldIndex, 1);
-  const newList = localTasks.value[newStatus];
-  newList.splice(newIndex, 0, oldTask);
-  updateLocalTasks();
-  try {
-    await taskStore.moveTask(taskId, newStatus, newIndex);
-    show(`Đã di chuyển "${oldTask.title}"`, 'success');
-    await loadData();
-  } catch (err) {
-    show('Di chuyển thất bại', 'error');
-    await loadData();
+
+  // Add todos that have this category
+  const allTodos = todoStore.todos || [];
+  let filteredTodos = allTodos;
+  if (activeCategory.value) {
+    filteredTodos = filteredTodos.filter(t => t.category_id === activeCategory.value);
+  }
+  if (activeSubcategory.value) {
+    filteredTodos = filteredTodos.filter(t => t.subcategory_id === activeSubcategory.value);
+  }
+  // Put unassigned todos (is_done=false) in first column, done todos in "Hoàn thành" column
+  for (const todo of filteredTodos) {
+    if (todo.is_done) {
+      const doneColumn = statuses.find(s => s.name === 'Hoàn thành');
+      if (doneColumn) {
+        localLists[doneColumn.name] = [
+          ...(localLists[doneColumn.name] || []),
+          { ...todo, __type: 'todo', status: 'Hoàn thành' },
+        ];
+      }
+    } else {
+      const firstColumn = statuses[0];
+      if (firstColumn) {
+        localLists[firstColumn.name] = [
+          ...(localLists[firstColumn.name] || []),
+          { ...todo, __type: 'todo', status: firstColumn.name },
+        ];
+      }
+    }
+  }
+}
+
+async function onDragEnd(event, newStatusName) {
+  const itemId = event.item.__draggable_context.element.id;
+  const itemType = event.item.__draggable_context.element.__type;
+  if (!itemId) return;
+  const newIndex = event.newIndex;
+
+  const list = localLists[newStatusName] || [];
+  const item = list.find(i => i.id === itemId);
+  if (!item) return;
+
+  if (itemType === 'task') {
+    try {
+      await taskStore.moveTask(itemId, newStatusName, newIndex);
+      show(`Đã di chuyển "${item.title}"`, 'success');
+      await loadData();
+    } catch (err) {
+      show('Di chuyển thất bại', 'error');
+      await loadData();
+    }
+  } else if (itemType === 'todo') {
+    const isDone = newStatusName === 'Hoàn thành';
+    try {
+      await todoStore.updateTodo(itemId, { is_done: isDone ? 1 : 0 });
+      show(`Đã cập nhật todo "${item.title}"`, 'success');
+      await loadData();
+    } catch (err) {
+      show('Cập nhật todo thất bại', 'error');
+      await loadData();
+    }
   }
 }
 
@@ -216,12 +308,16 @@ async function loadData() {
   if (categories.value.length && !activeCategory.value) {
     activeCategory.value = categories.value[0].id;
   }
-  await taskStore.fetchTasks({ category_id: activeCategory.value });
-  updateLocalTasks();
+  await Promise.all([
+    taskStore.fetchTasks({ category_id: activeCategory.value }),
+    todoStore.fetchTodos(activeCategory.value),
+  ]);
+  updateLocalLists();
 }
 
-function openTaskModal(task = null) {
-  selectedTask.value = task;
+function openTaskModal(item = null) {
+  if (item?.__type === 'todo') return; // cannot edit todo in task modal
+  selectedTask.value = item;
   taskModalVisible.value = true;
 }
 
@@ -230,31 +326,31 @@ function openCreateModal() {
   taskModalVisible.value = true;
 }
 
-async function quickAddTask(status) {
-  const title = newTaskTitle[status]?.trim();
+async function quickAddTask(statusName) {
+  const title = newTaskTitle[statusName]?.trim();
   if (!title) return;
-  adding[status] = true;
+  adding[statusName] = true;
   try {
     await taskStore.createTask({
       title,
-      status,
+      status: statusName,
       category_id: activeCategory.value || null,
       subcategory_id: activeSubcategory.value || null,
     });
-    newTaskTitle[status] = '';
-    showAddForm[status] = false;
-    updateLocalTasks();
+    newTaskTitle[statusName] = '';
+    showAddForm[statusName] = false;
     show(`Đã thêm "${title}"`, 'success');
+    await loadData();
   } catch (err) {
     show('Lỗi khi thêm task', 'error');
   } finally {
-    adding[status] = false;
+    adding[statusName] = false;
   }
 }
 
-function cancelAdd(status) {
-  showAddForm[status] = false;
-  newTaskTitle[status] = '';
+function cancelAdd(statusName) {
+  showAddForm[statusName] = false;
+  newTaskTitle[statusName] = '';
 }
 
 async function onTaskSaved() {
@@ -264,13 +360,16 @@ async function onTaskSaved() {
 socket.on('task_updated', () => loadData());
 socket.on('task_created', () => loadData());
 socket.on('task_deleted', () => loadData());
+socket.on('category_status_created', () => loadData());
+socket.on('category_status_updated', () => loadData());
+socket.on('category_status_deleted', () => loadData());
 
 onMounted(() => {
   loadData();
 });
 
 watch(activeCategory, () => loadData());
-watch(activeSubcategory, () => updateLocalTasks());
+watch(activeSubcategory, () => updateLocalLists());
 </script>
 
 <style scoped>

@@ -7,18 +7,20 @@ export const useTodoStore = defineStore('todo', {
     loading: false,
   }),
   actions: {
-    async fetchTodos() {
+    async fetchTodos(category_id = null) {
       this.loading = true;
       try {
-        const response = await axios.get('/todos');
+        const params = {};
+        if (category_id) params.category_id = category_id;
+        const response = await axios.get('/todos', { params });
         this.todos = response.data.todos;
         return response.data;
       } finally {
         this.loading = false;
       }
     },
-    async createTodo(title) {
-      const response = await axios.post('/todos', { title });
+    async createTodo(title, category_id = null, subcategory_id = null) {
+      const response = await axios.post('/todos', { title, category_id, subcategory_id });
       await this.fetchTodos();
       return response.data.todo;
     },

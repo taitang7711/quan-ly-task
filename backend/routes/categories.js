@@ -10,13 +10,19 @@ router.get('/', authenticateToken, async (req, res) => {
       'SELECT * FROM categories ORDER BY sort_order'
     );
 
-    // Get subcategories for each category
+    // Get subcategories and statuses for each category
     for (let cat of categories) {
       const [subs] = await pool.query(
         'SELECT * FROM subcategories WHERE category_id = ? ORDER BY sort_order',
         [cat.id]
       );
       cat.subcategories = subs;
+
+      const [statuses] = await pool.query(
+        'SELECT * FROM category_statuses WHERE category_id = ? ORDER BY sort_order',
+        [cat.id]
+      );
+      cat.statuses = statuses;
 
       // Count tasks per status for each category
       const [stats] = await pool.query(

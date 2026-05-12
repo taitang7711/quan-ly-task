@@ -56,7 +56,7 @@ async function migrate() {
       description TEXT DEFAULT NULL,
       category_id INT DEFAULT NULL,
       subcategory_id INT DEFAULT NULL,
-      status ENUM('todo','in_progress','review','done') DEFAULT 'todo',
+      status VARCHAR(50) DEFAULT 'todo',
       priority ENUM('low','medium','high','urgent') DEFAULT 'medium',
       assignee_id INT DEFAULT NULL,
       due_date DATETIME DEFAULT NULL,
@@ -116,15 +116,30 @@ async function migrate() {
       UNIQUE KEY unique_user_config (user_id)
     ) ENGINE=InnoDB`,
 
+    `CREATE TABLE IF NOT EXISTS category_statuses (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      category_id INT NOT NULL,
+      name VARCHAR(100) NOT NULL,
+      color VARCHAR(7) DEFAULT '#1E3C72',
+      sort_order INT DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB`,
+
     `CREATE TABLE IF NOT EXISTS todos (
       id INT AUTO_INCREMENT PRIMARY KEY,
       user_id INT NOT NULL,
       title VARCHAR(255) NOT NULL,
       is_done BOOLEAN DEFAULT FALSE,
+      category_id INT DEFAULT NULL,
+      subcategory_id INT DEFAULT NULL,
       sort_order INT DEFAULT 0,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
+      FOREIGN KEY (subcategory_id) REFERENCES subcategories(id) ON DELETE SET NULL
     ) ENGINE=InnoDB`,
 
     `CREATE TABLE IF NOT EXISTS reports (
@@ -174,6 +189,76 @@ async function migrate() {
       await connection.query('INSERT INTO categories (name, color, sort_order) VALUES (?, ?, ?)', [name, color, order]);
     }
     console.log('  ✓ Default categories seeded');
+  }
+
+  // --- Migration for existing databases ---
+
+  // Alter todos table to add category_id and subcategory_id
+  try {
+    await connection.query(
+      'ALTER TABLE todos ADD COLUMN category_id INT DEFAULT NULL AFTER is_done'
+    );
+    console.log('  ✓ Added category_id to todos');
+  } catch (e) {
+    if (!e.message.includes('Duplicate column')) throw e;
+  }
+  try {
+    await connection.query(
+      'ALTER TABLE todos ADD COLUMN subcategory_id INT DEFAULT NULL AFTER category_id'
+    );
+    console.log('  ✓ Added subcategory_id to todos');
+  } catch (e) {
+    if (!e.message.includes('Duplicate column')) throw e;
+  }
+  try {
+    await connection.query(
+      'ALTER TABLE todos ADD FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL'
+    );
+  } catch (e) {
+    if (!e.message.includes('Duplicate foreign key') && !e.message.includes('errno: 1065')) throw e;
+  }
+  try {
+    await connection.query(
+      'ALTER TABLE todos ADD FOREIGN KEY (subcategory_id) REFERENCES subcategories(id) ON DELETE SET NULL'
+    );
+  } catch (e) {
+    if (!e.message.includes('Duplicate foreign key') && !e.message.includes('errno: 1065')) throw e;
+  }
+
+  // Alter tasks table: change status from ENUM to VARCHAR
+  try {
+    await connection.query("ALTER TABLE tasks MODIFY COLUMN status VARCHAR(50) DEFAULT 'Cần làm'");
+    console.log('  ✓ Changed tasks.status to VARCHAR(50)');
+  } catch (e) {
+    if (!e.message.includes('Duplicate')) throw e;
+  }
+
+  // Migrate existing tasks from old ENUM values to new display names
+  await connection.query("UPDATE tasks SET status = 'Cần làm' WHERE status = 'todo'");
+  await connection.query("UPDATE tasks SET status = 'Đang làm' WHERE status = 'in_progress'");
+  await connection.query("UPDATE tasks SET status = 'Xem lại' WHERE status = 'review'");
+  await connection.query("UPDATE tasks SET status = 'Hoàn thành' WHERE status = 'done'");
+  console.log('  ✓ Migrated old task statuses to new display names');
+
+  // Seed default statuses for each category if empty
+  const existingStatuses = await connection.query('SELECT COUNT(*) as count FROM category_statuses');
+  if (existingStatuses[0][0].count === 0) {
+    const cats = await connection.query('SELECT id FROM categories');
+    const defaultStatuses = [
+      ['Cần làm', '#1E3C72', 1],
+      ['Đang làm', '#2A5298', 2],
+      ['Xem lại', '#5DADE2', 3],
+      ['Hoàn thành', '#10B981', 4]
+    ];
+    for (const [cat] of cats[0]) {
+      for (const [name, color, order] of defaultStatuses) {
+        await connection.query(
+          'INSERT INTO category_statuses (category_id, name, color, sort_order) VALUES (?, ?, ?, ?)',
+          [cat.id, name, color, order]
+        );
+      }
+    }
+    console.log('  ✓ Default statuses seeded for each category');
   }
 
   // Seed default subcategories

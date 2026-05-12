@@ -12,21 +12,49 @@
 
         <!-- Quick Add -->
         <v-card class="pa-3 rounded-2xl mb-4">
-          <form @submit.prevent="addTodo" class="flex items-center gap-2">
-            <v-text-field
-              v-model="newTodoTitle"
-              placeholder="Nhập todo mới..."
-              hide-details
-              variant="solo-filled"
-              flat
-              density="compact"
-              class="flex-grow-1"
-              @keyup.enter="addTodo"
-            />
-            <v-btn color="primary" type="submit" :disabled="!newTodoTitle.trim()" class="rounded-xl" min-width="100">
-              <v-icon size="18" class="mr-1">mdi-plus</v-icon>
-              Thêm
-            </v-btn>
+          <form @submit.prevent="addTodo">
+            <div class="flex items-center gap-2">
+              <v-text-field
+                v-model="newTodoTitle"
+                placeholder="Nhập todo mới..."
+                hide-details
+                variant="solo-filled"
+                flat
+                density="compact"
+                class="flex-grow-1"
+              />
+              <v-btn color="primary" type="submit" :disabled="!newTodoTitle.trim()" class="rounded-xl" min-width="100">
+                <v-icon size="18" class="mr-1">mdi-plus</v-icon>
+                Thêm
+              </v-btn>
+            </div>
+            <div class="flex items-center gap-2 mt-2">
+              <v-select
+                v-model="newTodoCategoryId"
+                :items="categories"
+                item-title="name"
+                item-value="id"
+                label="Danh mục"
+                hide-details
+                variant="outlined"
+                density="compact"
+                clearable
+                class="flex-grow-1"
+              />
+              <v-select
+                v-model="newTodoSubcategoryId"
+                :items="subcategories"
+                item-title="name"
+                item-value="id"
+                label="Danh mục con"
+                hide-details
+                variant="outlined"
+                density="compact"
+                clearable
+                :disabled="!newTodoCategoryId"
+                class="flex-grow-1"
+              />
+            </div>
           </form>
         </v-card>
 
@@ -83,8 +111,28 @@
                 >
                   {{ todo.title }}
                 </div>
-                <div class="text-xs text-gray-400 mt-1">
-                  {{ formatDate(todo.created_at) }}
+                <div class="flex items-center gap-2 mt-1">
+                  <v-chip
+                    v-if="todo.category_name"
+                    size="x-small"
+                    variant="flat"
+                    class="font-medium"
+                    :color="todo.category_color || 'primary'"
+                  >
+                    {{ todo.category_name }}
+                  </v-chip>
+                  <v-chip
+                    v-if="todo.subcategory_name"
+                    size="x-small"
+                    variant="outlined"
+                    class="font-medium"
+                    color="gray"
+                  >
+                    {{ todo.subcategory_name }}
+                  </v-chip>
+                  <span class="text-xs text-gray-400">
+                    {{ formatDate(todo.created_at) }}
+                  </span>
                 </div>
               </div>
               <v-btn
@@ -116,13 +164,24 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import AppBar from '../components/AppBar.vue';
 import { useTodoStore } from '../stores/todo';
+import { useCategoryStore } from '../stores/category';
 
 const todoStore = useTodoStore();
+const categoryStore = useCategoryStore();
+
 const newTodoTitle = ref('');
+const newTodoCategoryId = ref(null);
+const newTodoSubcategoryId = ref(null);
 const filter = ref('all');
+
+const categories = computed(() => categoryStore.categories);
+const subcategories = computed(() => {
+  const cat = categories.value.find(c => c.id === newTodoCategoryId.value);
+  return cat?.subcategories || [];
+});
 
 const filters = computed(() => [
   { label: 'Tất cả', value: 'all', count: todos.value.length },
@@ -141,6 +200,10 @@ const filteredTodos = computed(() => {
 
 const completedCount = computed(() => todos.value.filter(t => t.is_done).length);
 
+watch(newTodoCategoryId, () => {
+  newTodoSubcategoryId.value = null;
+});
+
 function formatDate(date) {
   if (!date) return '';
   return new Date(date).toLocaleDateString('vi-VN', {
@@ -152,8 +215,10 @@ function formatDate(date) {
 async function addTodo() {
   const title = newTodoTitle.value.trim();
   if (!title) return;
-  await todoStore.createTodo(title);
+  await todoStore.createTodo(title, newTodoCategoryId.value, newTodoSubcategoryId.value);
   newTodoTitle.value = '';
+  newTodoCategoryId.value = null;
+  newTodoSubcategoryId.value = null;
 }
 
 async function toggleTodo(todo) {
@@ -165,6 +230,7 @@ async function deleteTodo(todo) {
 }
 
 onMounted(() => {
+  categoryStore.fetchCategories();
   todoStore.fetchTodos();
 });
 </script>

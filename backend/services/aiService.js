@@ -60,7 +60,9 @@ async function callLLM(pool, userId, prompt, systemPrompt = null, options = {}) 
     switch (config.provider) {
       case 'openai':
         const OpenAI = require('openai');
-        const openai = new OpenAI({ apiKey: config.api_key });
+        const openaiOptions = { apiKey: config.api_key };
+        if (config.base_url) openaiOptions.baseURL = config.base_url;
+        const openai = new OpenAI(openaiOptions);
         const messages = [];
         if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
         messages.push({ role: 'user', content: prompt });
@@ -75,7 +77,9 @@ async function callLLM(pool, userId, prompt, systemPrompt = null, options = {}) 
         
       case 'anthropic':
         const Anthropic = require('@anthropic-ai/sdk');
-        const anthropic = new Anthropic({ apiKey: config.api_key });
+        const anthropicOptions = { apiKey: config.api_key };
+        if (config.base_url) anthropicOptions.baseURL = config.base_url;
+        const anthropic = new Anthropic(anthropicOptions);
         const systemMsg = systemPrompt || '';
         const msg = await anthropic.messages.create({
           model: config.model_name,
@@ -93,7 +97,9 @@ async function callLLM(pool, userId, prompt, systemPrompt = null, options = {}) 
         
       case 'google':
         const { GoogleGenerativeAI } = require('@google/generative-ai');
-        const genAI = new GoogleGenerativeAI(config.api_key);
+        const genAiOptions = {};
+        if (config.base_url) genAiOptions.baseUrl = config.base_url;
+        const genAI = new GoogleGenerativeAI(config.api_key, genAiOptions);
         const model = genAI.getGenerativeModel({ model: config.model_name });
         const fullPrompt = systemPrompt ? systemPrompt + '\n\n' + prompt : prompt;
         const result = await model.generateContent(fullPrompt);
