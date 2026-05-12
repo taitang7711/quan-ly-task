@@ -166,6 +166,7 @@ import AppBar from '../components/AppBar.vue';
 import TaskCard from '../components/TaskCard.vue';
 import WorkItemModal from '../components/WorkItemModal.vue';
 import draggable from 'vuedraggable';
+import axios from '../utils/axios';
 import { useTaskStore } from '../stores/task';
 import { useTodoStore } from '../stores/todo';
 import { useCategoryStore } from '../stores/category';
@@ -304,9 +305,13 @@ function updateLocalLists() {
 
 // Handle vuedraggable @change event
 // IMPORTANT: Only handle 'added' (item dropped from another column) and 'moved' (reorder within column).
-// The 'removed' event fires on the SOURCE column when an item is dragged OUT.
-// If we handle 'removed', we'd move the item back to the source status — that's WRONG.
-// The destination column's 'added' event handles the actual move.
+// The 'removed' event is IGNORED - it fires on the source column when item leaves, but
+// the destination column's 'added' event handles the actual state change.
+//
+// Key insight: vuedraggable has ALREADY moved the item in the localList visually.
+// We only need to sync the backend. DO NOT call refreshBoard() here because that
+// would rebuild localLists from server data, fighting vuedraggable's visual state.
+// The socket listeners handle eventual consistency.
 async function onDragChange(event, newStatusName) {
   const change = event.added || event.moved;
   if (!change) return;
@@ -317,25 +322,18 @@ async function onDragChange(event, newStatusName) {
   const itemType = item.__type;
   const itemId = item.id;
 
-  if (itemType === 'task') {
-    try {
-      await taskStore.moveTask(itemId, newStatusName, change.newIndex || 0);
+  try {
+    if (itemType === 'task') {
+      await axios.patch(`/tasks/${itemId}/move`, { status: newStatusName, board_position: change.newIndex || 0 });
       show(`Đã di chuyển task`, 'success');
-      await refreshBoard();
-    } catch (err) {
-      show('Di chuyển task thất bại', 'error');
-      await refreshBoard();
-    }
-  } else if (itemType === 'todo') {
-    const isDone = newStatusName === 'Hoàn thành';
-    try {
-      await todoStore.updateTodo(itemId, { is_done: isDone ? 1 : 0, status: newStatusName });
+    } else if (itemType === 'todo') {
+      const isDone = newStatusName === 'Hoàn thành';
+      await axios.patch(`/todos/${itemId}/move`, { status: newStatusName, board_position: change.newIndex || 0 });
       show(`Đã cập nhật todo`, 'success');
-      await refreshBoard();
-    } catch (err) {
-      show('Cập nhật todo thất bại', 'error');
-      await refreshBoard();
     }
+  } catch (err) {
+    show('Thao tác thất bại', 'error');
+    await refreshBoard();
   }
 }
 
