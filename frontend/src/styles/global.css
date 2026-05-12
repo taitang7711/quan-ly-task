@@ -1,44 +1,73 @@
-/* CSS Variables for theming and smoothness */
 :root {
+  --primary-gradient: linear-gradient(135deg, #1E3C72 0%, #2A5298 50%, #3B76C4 100%);
   --primary-gradient-start: #1E3C72;
   --primary-gradient-end: #2A5298;
-  --glass-bg: rgba(255, 255, 255, 0.1);
-  --glass-border: rgba(255, 255, 255, 0.2);
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.3);
   --card-radius: 1rem;
-  --transition-speed: 0.2s;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 50px rgba(0, 0, 0, 0.12);
 }
 
-/* Improved background with softer gradient */
 body {
-  background: linear-gradient(135deg, #f5f7fa 0%, #e9eef5 100%);
+  background: linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%);
   min-height: 100vh;
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   margin: 0;
   padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Glassmorphism utility */
 .glass {
   background: var(--glass-bg);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--glass-border);
   border-radius: var(--card-radius);
 }
 
-/* Kanban column scroll and styling */
+.glass-strong {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: var(--card-radius);
+}
+
+.gradient-text {
+  background: var(--primary-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.gradient-bg {
+  background: var(--primary-gradient);
+}
+
 .kanban-column {
   max-height: calc(100vh - 250px);
   overflow-y: auto;
   scrollbar-width: thin;
   border-radius: 1rem;
-  transition: all var(--transition-speed) ease;
 }
 
-.kanban-column:hover {
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
+.kanban-column::-webkit-scrollbar {
+  width: 5px;
 }
 
-/* Custom scrollbar */
+.kanban-column::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.kanban-column::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+}
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -59,86 +88,94 @@ body {
   background: #a8a8a8;
 }
 
-/* Gradient text utility */
-.gradient-text {
-  background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+.hover-lift {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Enhanced card hover effect */
-.task-card {
-  transition: all 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1);
-  cursor: pointer;
+.hover-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
 }
 
-.task-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 20px 25px -12px rgba(0, 0, 0, 0.15);
+.card-gradient {
+  background: linear-gradient(135deg, #ffffff 0%, #f7fafc 100%);
 }
 
-/* Smooth fade animations */
+.v-btn {
+  transition: all 0.2s ease !important;
+  text-transform: none !important;
+}
+
+.v-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+
+.v-card {
+  border-radius: 1rem !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 .fade-enter-active, .fade-leave-active {
   transition: opacity 0.3s ease;
 }
+
 .fade-enter-from, .fade-leave-to {
   opacity: 0;
 }
 
-/* Slide animations for router view */
 .slide-enter-active, .slide-leave-active {
   transition: transform 0.3s ease, opacity 0.3s ease;
 }
+
 .slide-enter-from {
   transform: translateX(20px);
   opacity: 0;
 }
+
 .slide-leave-to {
   transform: translateX(-20px);
   opacity: 0;
 }
 
-/* Draggable item animation */
 .draggable-item {
   transition: transform 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1);
 }
 
-/* Button hover effects */
-.v-btn {
-  transition: all 0.2s ease !important;
-}
-.v-btn:hover {
-  transform: translateY(-2px);
-  filter: brightness(1.02);
-}
-
-/* Smooth dialog appearance */
-.v-dialog {
-  animation: slideUp 0.25s ease-out;
-}
-
-/* Loading skeleton animation */
 @keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
+
 .skeleton {
   background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
 
-/* Responsive adjustments */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(30, 60, 114, 0.1); }
+  50% { box-shadow: 0 0 30px rgba(30, 60, 114, 0.2); }
+}
+
+.animate-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
 @media (max-width: 768px) {
   .kanban-column {
     max-height: calc(100vh - 180px);
   }
   .glass {
-    backdrop-filter: blur(5px);
+    backdrop-filter: blur(8px);
   }
 }

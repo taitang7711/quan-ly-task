@@ -1,143 +1,164 @@
 <template>
-  <v-container>
-    <v-row justify="center">
-      <v-col cols="12" md="8">
-        <v-card>
-          <v-card-title class="text-h5 primary white--text">
-            ⚙️ AI Configuration
-          </v-card-title>
-          <v-card-text class="mt-4">
-            <v-alert type="info" dense class="mb-4">
-              Configure your AI provider to enable intelligent task breakdown, priority suggestions, and smart summaries.
-            </v-alert>
+  <div>
+    <AppBar />
+    <div class="app-content">
+      <v-container class="pa-4 pt-2">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-9 h-9 rounded-xl gradient-bg flex items-center justify-center shadow-md">
+            <v-icon color="white" size="20">mdi-cog-outline</v-icon>
+          </div>
+          <h1 class="text-xl font-extrabold gradient-text">Cài đặt AI</h1>
+        </div>
 
-            <v-form ref="form" v-model="valid">
-              <v-select
-                v-model="config.provider"
-                :items="providers"
-                label="AI Provider"
-                required
-                outlined
-                dense
-                @change="onProviderChange"
-              ></v-select>
+        <v-row justify="center">
+          <v-col cols="12" md="8">
+            <v-card class="pa-6 rounded-2xl">
+              <div class="flex items-center gap-3 mb-6">
+                <div class="w-12 h-12 rounded-2xl bg-purple-50 flex items-center justify-center">
+                  <v-icon color="purple" size="28">mdi-robot-outline</v-icon>
+                </div>
+                <div>
+                  <h2 class="font-bold text-lg">AI Configuration</h2>
+                  <p class="text-xs text-gray-500">Configure your AI provider for intelligent features</p>
+                </div>
+              </div>
 
-              <v-text-field
-                v-model="config.model_name"
-                label="Model Name"
-                placeholder="e.g., gpt-4o, claude-3.5-sonnet, gemini-1.5-pro"
-                required
-                outlined
-                dense
-              ></v-text-field>
+              <v-alert type="info" variant="tonal" class="mb-6 rounded-xl" density="compact">
+                <template v-slot:prepend>
+                  <v-icon>mdi-lightbulb-outline</v-icon>
+                </template>
+                Configure your AI provider to enable intelligent task breakdown, priority suggestions, and smart summaries.
+              </v-alert>
 
-              <v-text-field
-                v-model="config.api_key"
-                :type="showApiKey ? 'text' : 'password'"
-                label="API Key"
-                placeholder="Enter your API key"
-                required
-                outlined
-                dense
-                :append-icon="showApiKey ? 'mdi-eye-off' : 'mdi-eye'"
-                @click:append="showApiKey = !showApiKey"
-              ></v-text-field>
+              <v-form ref="form" v-model="valid">
+                <v-select
+                  v-model="config.provider"
+                  :items="providers"
+                  label="AI Provider"
+                  required
+                  @change="onProviderChange"
+                  class="mb-1"
+                />
 
-              <v-text-field
-                v-if="config.provider === 'openai_compatible'"
-                v-model="config.base_url"
-                label="Custom Base URL"
-                placeholder="http://localhost:8080/v1"
-                outlined
-                dense
-              ></v-text-field>
+                <v-text-field
+                  v-model="config.model_name"
+                  label="Model Name"
+                  placeholder="e.g., gpt-4o, claude-3.5-sonnet"
+                  required
+                  class="mb-1"
+                />
 
-              <v-row>
-                <v-col cols="12" md="6">
-                  <v-slider
-                    v-model="config.temperature"
-                    label="Temperature"
-                    min="0"
-                    max="2"
-                    step="0.1"
-                    thumb-label
-                    dense
-                  ></v-slider>
-                </v-col>
-                <v-col cols="12" md="6">
-                  <v-slider
-                    v-model="config.max_tokens"
-                    label="Max Tokens"
-                    min="100"
-                    max="4000"
-                    step="100"
-                    thumb-label
-                    dense
-                  ></v-slider>
-                </v-col>
-              </v-row>
+                <v-text-field
+                  v-model="config.api_key"
+                  :type="showApiKey ? 'text' : 'password'"
+                  label="API Key"
+                  placeholder="Enter your API key"
+                  required
+                  :append-inner-icon="showApiKey ? 'mdi-eye-off' : 'mdi-eye'"
+                  @click:append-inner="showApiKey = !showApiKey"
+                  class="mb-1"
+                />
 
-              <v-switch
-                v-model="config.is_active"
-                label="Enable AI features"
-                color="primary"
-              ></v-switch>
-            </v-form>
-          </v-card-text>
+                <v-text-field
+                  v-if="config.provider === 'openai_compatible'"
+                  v-model="config.base_url"
+                  label="Custom Base URL"
+                  placeholder="http://localhost:8080/v1"
+                  class="mb-1"
+                />
 
-          <v-card-actions>
-            <v-spacer></v-spacer>
-            <v-btn color="primary" @click="saveConfig" :loading="saving">
-              Save Configuration
-            </v-btn>
-            <v-btn color="success" @click="testConnection" :loading="testing">
-              Test Connection
-            </v-btn>
-          </v-card-actions>
+                <v-row>
+                  <v-col cols="12" md="6">
+                    <v-slider
+                      v-model="config.temperature"
+                      label="Temperature"
+                      min="0"
+                      max="2"
+                      step="0.1"
+                      thumb-label
+                      density="compact"
+                    />
+                  </v-col>
+                  <v-col cols="12" md="6">
+                    <v-slider
+                      v-model="config.max_tokens"
+                      label="Max Tokens"
+                      min="100"
+                      max="4000"
+                      step="100"
+                      thumb-label
+                      density="compact"
+                    />
+                  </v-col>
+                </v-row>
 
-          <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="3000">
-            {{ snackbar.text }}
-          </v-snackbar>
-        </v-card>
+                <v-switch
+                  v-model="config.is_active"
+                  label="Enable AI features"
+                  color="primary"
+                  inset
+                />
+              </v-form>
 
-        <v-card class="mt-4">
-          <v-card-title class="text-h6">
-            📊 AI Interaction History
-          </v-card-title>
-          <v-card-text>
-            <v-data-table
-              :headers="historyHeaders"
-              :items="history"
-              :loading="loadingHistory"
-              dense
-              items-per-page="5"
-            >
-              <template v-slot:item.type="{ item }">
-                <v-chip small :color="getTypeColor(item.type)">
-                  {{ item.type }}
-                </v-chip>
-              </template>
-              <template v-slot:item.created_at="{ item }">
-                {{ new Date(item.created_at).toLocaleString() }}
-              </template>
-            </v-data-table>
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
-  </v-container>
+              <div class="flex justify-end gap-3 mt-4">
+                <v-btn color="success" variant="tonal" @click="testConnection" :loading="testing" class="rounded-xl">
+                  <v-icon size="18" class="mr-1">mdi-connection</v-icon>
+                  Test Connection
+                </v-btn>
+                <v-btn color="primary" @click="saveConfig" :loading="saving" class="rounded-xl px-6">
+                  <v-icon size="18" class="mr-1">mdi-content-save</v-icon>
+                  Lưu
+                </v-btn>
+              </div>
+            </v-card>
+
+            <!-- AI History -->
+            <v-card class="mt-4 pa-4 rounded-2xl">
+              <div class="flex items-center gap-2 mb-4">
+                <v-icon color="purple" size="20">mdi-history</v-icon>
+                <span class="font-bold text-sm">AI Interaction History</span>
+              </div>
+              <v-data-table
+                :headers="historyHeaders"
+                :items="history"
+                :loading="loadingHistory"
+                density="compact"
+                hide-default-footer
+                items-per-page="5"
+                class="custom-table"
+              >
+                <template v-slot:item.type="{ item }">
+                  <v-chip :color="getTypeColor(item.type)" size="x-small" variant="flat" class="font-medium text-white">
+                    {{ item.type }}
+                  </v-chip>
+                </template>
+                <template v-slot:item.created_at="{ item }">
+                  <span class="text-xs text-gray-500">{{ new Date(item.created_at).toLocaleString() }}</span>
+                </template>
+                <template v-slot:no-data>
+                  <div class="text-center py-6 text-gray-400 text-sm">Chưa có lịch sử</div>
+                </template>
+              </v-data-table>
+            </v-card>
+          </v-col>
+        </v-row>
+      </v-container>
+    </div>
+  </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue';
 import axios from '../utils/axios';
+import { useToast } from '../composables/useToast';
+import AppBar from '../components/AppBar.vue';
 
+const { show } = useToast();
 const valid = ref(false);
 const saving = ref(false);
 const testing = ref(false);
 const showApiKey = ref(false);
 const loadingHistory = ref(false);
-const snackbar = ref({ show: false, text: '', color: 'success' });
 
 const providers = [
   { text: 'OpenAI', value: 'openai' },
@@ -158,31 +179,29 @@ const config = ref({
 
 const history = ref([]);
 const historyHeaders = [
-  { title: 'Type', key: 'type' },
-  { title: 'Prompt', key: 'prompt' },
-  { title: 'Model', key: 'model_used' },
-  { title: 'Time', key: 'created_at' }
+  { title: 'Type', key: 'type', sortable: false },
+  { title: 'Prompt', key: 'prompt', sortable: false },
+  { title: 'Model', key: 'model_used', sortable: false },
+  { title: 'Time', key: 'created_at', sortable: false },
 ];
 
 function onProviderChange() {
-  if (config.value.provider === 'openai') {
-    config.value.model_name = 'gpt-3.5-turbo';
-  } else if (config.value.provider === 'anthropic') {
-    config.value.model_name = 'claude-3-haiku-20240307';
-  } else if (config.value.provider === 'google') {
-    config.value.model_name = 'gemini-1.5-flash';
-  } else if (config.value.provider === 'openai_compatible') {
-    config.value.model_name = 'gpt-3.5-turbo';
-  }
+  const models = {
+    openai: 'gpt-3.5-turbo',
+    anthropic: 'claude-3-haiku-20240307',
+    google: 'gemini-1.5-flash',
+    openai_compatible: 'gpt-3.5-turbo',
+  };
+  config.value.model_name = models[config.value.provider] || 'gpt-3.5-turbo';
 }
 
 async function saveConfig() {
   saving.value = true;
   try {
     await axios.post('/ai/config', config.value);
-    snackbar.value = { show: true, text: 'Configuration saved successfully!', color: 'success' };
+    show('Configuration saved!', 'success');
   } catch (err) {
-    snackbar.value = { show: true, text: 'Failed to save configuration', color: 'error' };
+    show('Failed to save configuration', 'error');
   } finally {
     saving.value = false;
   }
@@ -191,15 +210,14 @@ async function saveConfig() {
 async function testConnection() {
   testing.value = true;
   try {
-    // Test with a simple prompt
     const res = await axios.post('/ai/general', { prompt: 'Say "Connection successful"' });
     if (res.data.result && res.data.result.suggestion) {
-      snackbar.value = { show: true, text: 'Connection successful! AI responded.', color: 'success' };
+      show('Connection successful!', 'success');
     } else {
-      snackbar.value = { show: true, text: 'Connection failed: Invalid response', color: 'error' };
+      show('Invalid response from AI', 'warning');
     }
   } catch (err) {
-    snackbar.value = { show: true, text: 'Connection failed: ' + (err.response?.data?.error || err.message), color: 'error' };
+    show('Connection failed: ' + (err.response?.data?.error || err.message), 'error');
   } finally {
     testing.value = false;
   }
@@ -210,7 +228,7 @@ async function loadConfig() {
     const res = await axios.get('/ai/config');
     if (res.data.config) {
       config.value = { ...config.value, ...res.data.config };
-      config.value.api_key = ''; // Don't show stored key
+      config.value.api_key = '';
     }
   } catch (err) {
     console.error('Failed to load config:', err);
@@ -247,3 +265,31 @@ onMounted(() => {
   loadHistory();
 });
 </script>
+
+<style scoped>
+.app-content {
+  padding-top: 64px;
+}
+
+.custom-table :deep(table) {
+  border-collapse: separate;
+  border-spacing: 0 4px;
+}
+
+.custom-table :deep(thead th) {
+  background: #F8FAFC !important;
+  color: #64748B !important;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 8px 12px !important;
+  border-bottom: none !important;
+}
+
+.custom-table :deep(tbody td) {
+  padding: 10px 12px !important;
+  border-bottom: none !important;
+  background: white;
+}
+</style>

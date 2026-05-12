@@ -2,19 +2,20 @@
   <v-app>
     <v-main>
       <router-view v-slot="{ Component }">
-        <transition name="fade" mode="out-in">
+        <transition name="page-fade" mode="out-in">
           <component :is="Component" />
         </transition>
       </router-view>
     </v-main>
-    <!-- Global loading indicator (optional) -->
     <v-progress-linear v-if="isLoading" indeterminate color="primary" class="global-loading" />
+    <ToastContainer />
   </v-app>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue';
+import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import ToastContainer from './components/ToastContainer.vue';
 
 const router = useRouter();
 const isLoading = ref(false);
@@ -25,7 +26,6 @@ router.beforeEach((to, from, next) => {
 });
 
 router.afterEach(() => {
-  // Small delay to avoid flicker
   setTimeout(() => {
     isLoading.value = false;
   }, 200);
@@ -33,18 +33,18 @@ router.afterEach(() => {
 </script>
 
 <style>
-/* Fade transition for router views */
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.25s ease;
+.page-fade-enter-active,
+.page-fade-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
-
-.fade-enter-from,
-.fade-leave-to {
+.page-fade-enter-from {
   opacity: 0;
+  transform: translateY(8px);
 }
-
-/* Global loading bar */
+.page-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
 .global-loading {
   position: fixed;
   top: 0;
