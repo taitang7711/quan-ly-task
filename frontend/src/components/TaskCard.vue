@@ -3,7 +3,11 @@
     <v-card-text class="pa-3">
       <div class="flex items-start justify-between gap-2 mb-2">
         <div class="flex-1 min-w-0">
-          <div class="font-bold text-sm leading-snug text-gray-800 mb-1.5 truncate">
+          <div class="font-bold text-sm leading-snug text-gray-800 mb-1.5 truncate flex items-center gap-1.5">
+            <v-chip v-if="task.hash_task" size="x-small" variant="outlined" color="primary" class="font-mono font-bold" density="compact">
+              <v-icon size="10" class="mr-0.5">mdi-pound</v-icon>
+              {{ task.hash_task }}
+            </v-chip>
             {{ task.title }}
           </div>
           <div class="flex flex-wrap gap-1.5">
@@ -19,11 +23,25 @@
               <v-icon size="11" class="mr-0.5">mdi-calendar-outline</v-icon>
               {{ formatDate(task.due_date) }}
             </v-chip>
+            <v-chip v-if="task.timer_status === 'running'" color="success" size="x-small" density="compact" class="font-medium">
+              <v-icon size="11" class="mr-0.5">mdi-timer-sand</v-icon>
+              Đang làm
+            </v-chip>
+            <v-chip v-if="task.timer_status === 'paused'" color="warning" size="x-small" density="compact" class="font-medium">
+              <v-icon size="11" class="mr-0.5">mdi-timer-off-outline</v-icon>
+              Tạm dừng
+            </v-chip>
           </div>
         </div>
-        <div v-if="task.estimated_hours" class="text-xs text-gray-400 whitespace-nowrap flex items-center">
-          <v-icon size="12" class="mr-0.5">mdi-clock-outline</v-icon>
-          {{ task.estimated_hours }}h
+        <div v-if="task.estimated_hours || task.actual_hours" class="text-xs text-gray-400 whitespace-nowrap flex flex-col items-end">
+          <div v-if="task.estimated_hours" class="flex items-center">
+            <v-icon size="12" class="mr-0.5">mdi-clock-outline</v-icon>
+            {{ task.estimated_hours }}h
+          </div>
+          <div v-if="task.actual_hours" class="flex items-center text-blue-500">
+            <v-icon size="12" class="mr-0.5">mdi-clock-check-outline</v-icon>
+            {{ task.actual_hours }}h
+          </div>
         </div>
       </div>
 
@@ -124,12 +142,10 @@ function getInitials(name) {
   border: 1px solid rgba(0, 0, 0, 0.04);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
-
 .task-card:hover {
   border-color: rgba(30, 60, 114, 0.12);
   background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
 }
-
 .line-clamp-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;

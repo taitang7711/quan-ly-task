@@ -16,7 +16,20 @@ router.get('/', authenticateToken, async (req, res) => {
         'SELECT * FROM subcategories WHERE category_id = ? ORDER BY sort_order',
         [cat.id]
       );
-      cat.subcategories = subs;
+      // Build nested tree
+      const subMap = {};
+      const roots = [];
+      for (const sub of subs) {
+        subMap[sub.id] = { ...sub, children: [] };
+      }
+      for (const sub of subs) {
+        if (sub.parent_subcategory_id && subMap[sub.parent_subcategory_id]) {
+          subMap[sub.parent_subcategory_id].children.push(subMap[sub.id]);
+        } else {
+          roots.push(subMap[sub.id]);
+        }
+      }
+      cat.subcategories = roots;
 
       const [statuses] = await pool.query(
         'SELECT * FROM category_statuses WHERE category_id = ? ORDER BY sort_order',

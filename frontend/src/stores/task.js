@@ -4,12 +4,7 @@ import axios from '../utils/axios';
 export const useTaskStore = defineStore('task', {
   state: () => ({
     tasks: [],
-    kanban: {
-      todo: [],
-      in_progress: [],
-      review: [],
-      done: [],
-    },
+    kanban: {},
     loading: false,
   }),
   actions: {
@@ -54,6 +49,23 @@ export const useTaskStore = defineStore('task', {
     },
     async getStats() {
       const response = await axios.get('/tasks/stats/summary');
+      return response.data;
+    },
+    // Timer actions
+    async timerStart(taskId) {
+      const response = await axios.post(`/tasks/${taskId}/timer/start`);
+      return response.data.task;
+    },
+    async timerPause(taskId) {
+      const response = await axios.post(`/tasks/${taskId}/timer/pause`);
+      return response.data.task;
+    },
+    async timerResume(taskId) {
+      const response = await axios.post(`/tasks/${taskId}/timer/resume`);
+      return response.data.task;
+    },
+    async timerStop(taskId) {
+      const response = await axios.post(`/tasks/${taskId}/timer/stop`);
       return response.data;
     },
   },

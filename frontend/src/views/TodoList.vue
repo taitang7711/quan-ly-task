@@ -92,8 +92,9 @@
           <v-card
             v-for="todo in filteredTodos"
             :key="todo.id"
-            class="pa-3 rounded-2xl mb-2 hover-lift"
+            class="pa-3 rounded-2xl mb-2 hover-lift cursor-pointer"
             :class="{ 'todo-done': todo.is_done }"
+            @click="openTodoModal(todo)"
           >
             <div class="flex items-center gap-3">
               <v-checkbox
@@ -102,6 +103,7 @@
                 density="compact"
                 color="success"
                 class="mt-0"
+                @click.stop
                 @change="toggleTodo(todo)"
               />
               <div class="flex-grow-1 min-w-0">
@@ -112,6 +114,16 @@
                   {{ todo.title }}
                 </div>
                 <div class="flex items-center gap-2 mt-1">
+                  <v-chip
+                    v-if="todo.hash_task"
+                    size="x-small"
+                    variant="outlined"
+                    color="primary"
+                    class="font-mono font-bold"
+                  >
+                    <v-icon size="10" class="mr-0.5">mdi-pound</v-icon>
+                    {{ todo.hash_task }}
+                  </v-chip>
                   <v-chip
                     v-if="todo.category_name"
                     size="x-small"
@@ -130,6 +142,15 @@
                   >
                     {{ todo.subcategory_name }}
                   </v-chip>
+                  <v-chip
+                    v-if="todo.priority"
+                    size="x-small"
+                    variant="flat"
+                    :color="priorityColor(todo.priority)"
+                    class="font-medium text-white"
+                  >
+                    {{ todo.priority === 'urgent' ? 'Urgent' : todo.priority === 'high' ? 'Cao' : todo.priority === 'medium' ? 'TB' : 'Thấp' }}
+                  </v-chip>
                   <span class="text-xs text-gray-400">
                     {{ formatDate(todo.created_at) }}
                   </span>
@@ -141,7 +162,7 @@
                 size="small"
                 color="error"
                 class="opacity-50 hover-opacity-100"
-                @click="deleteTodo(todo)"
+                @click.stop="deleteTodo(todo)"
               >
                 <v-icon size="18">mdi-delete-outline</v-icon>
               </v-btn>
@@ -160,12 +181,15 @@
         </div>
       </v-container>
     </div>
+
+    <WorkItemModal v-model="modalVisible" :item="selectedTodo" item-type="todo" @saved="onTodoSaved" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
 import AppBar from '../components/AppBar.vue';
+import WorkItemModal from '../components/WorkItemModal.vue';
 import { useTodoStore } from '../stores/todo';
 import { useCategoryStore } from '../stores/category';
 
@@ -176,6 +200,8 @@ const newTodoTitle = ref('');
 const newTodoCategoryId = ref(null);
 const newTodoSubcategoryId = ref(null);
 const filter = ref('all');
+const modalVisible = ref(false);
+const selectedTodo = ref(null);
 
 const categories = computed(() => categoryStore.categories);
 const subcategories = computed(() => {
@@ -199,6 +225,11 @@ const filteredTodos = computed(() => {
 });
 
 const completedCount = computed(() => todos.value.filter(t => t.is_done).length);
+
+function priorityColor(priority) {
+  const colors = { low: 'success', medium: 'info', high: 'warning', urgent: 'error' };
+  return colors[priority] || 'default';
+}
 
 watch(newTodoCategoryId, () => {
   newTodoSubcategoryId.value = null;
@@ -229,6 +260,15 @@ async function deleteTodo(todo) {
   await todoStore.deleteTodo(todo.id);
 }
 
+function openTodoModal(todo) {
+  selectedTodo.value = todo;
+  modalVisible.value = true;
+}
+
+async function onTodoSaved() {
+  await todoStore.fetchTodos();
+}
+
 onMounted(() => {
   categoryStore.fetchCategories();
   todoStore.fetchTodos();
@@ -239,17 +279,14 @@ onMounted(() => {
 .app-content {
   padding-top: 64px;
 }
-
 .todo-done {
   opacity: 0.65;
 }
-
 .filter-active {
   background: rgba(30, 60, 114, 0.1) !important;
   color: #1E3C72 !important;
   font-weight: 600 !important;
 }
-
 .hover-opacity-100:hover {
   opacity: 1 !important;
 }

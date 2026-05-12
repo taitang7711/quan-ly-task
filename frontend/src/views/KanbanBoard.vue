@@ -13,17 +13,34 @@
               </div>
             </v-tab>
           </v-tabs>
-          <v-tabs v-if="selectedCategory" v-model="activeSubcategory" color="accent" show-arrows class="subcategory-tabs mt-1">
-            <v-tab :value="null" class="rounded-lg mx-0.5 text-xs">Tất cả</v-tab>
-            <v-tab
-              v-for="sub in selectedCategory.subcategories"
-              :key="sub.id"
-              :value="sub.id"
-              class="rounded-lg mx-0.5 text-xs"
-            >
-              {{ sub.name }}
-            </v-tab>
-          </v-tabs>
+
+          <!-- Nested Subcategory Tabs -->
+          <div v-if="selectedCategory" class="subcategory-tree mt-1">
+            <template v-for="sub in selectedCategory.subcategories" :key="sub.id">
+              <div
+                class="sub-tab-item flex items-center gap-1 px-2 py-1 rounded-lg cursor-pointer text-xs"
+                :class="{ 'sub-tab-active': activeSubcategory === sub.id }"
+                @click="toggleSubcategory(sub.id)"
+              >
+                <v-icon size="14" class="mr-0.5" @click.stop="toggleCollapse(sub)">mdi-chevron-right</v-icon>
+                <v-icon size="13" :color="sub.color || 'gray'">{{ sub.icon || 'mdi-folder-outline' }}</v-icon>
+                <span>{{ sub.name }}</span>
+              </div>
+              <template v-if="sub.children && sub.children.length">
+                <div
+                  v-for="child in sub.children"
+                  :key="child.id"
+                  class="sub-tab-item sub-tab-child flex items-center gap-1 px-2 py-1 rounded-lg cursor-pointer text-xs ml-6"
+                  :class="{ 'sub-tab-active': activeSubcategory === child.id }"
+                  @click="activeSubcategory = child.id"
+                >
+                  <v-icon size="13" :color="child.color || 'gray'">{{ child.icon || 'mdi-file-outline' }}</v-icon>
+                  <span>{{ child.name }}</span>
+                </div>
+              </template>
+            </template>
+            <v-tab v-if="!selectedCategory.subcategories?.length" :value="null" class="rounded-lg mx-0.5 text-xs">Tất cả</v-tab>
+          </div>
         </v-card>
 
         <!-- Kanban Board -->
@@ -57,18 +74,24 @@
                   <TaskCard
                     v-if="item.__type === 'task'"
                     :task="item"
-                    @click="openTaskModal(item)"
+                    @click="openWorkItemModal(item, 'task')"
                   />
                   <v-card
                     v-else
                     class="pa-3 rounded-xl hover-lift cursor-pointer"
-                    @click="openTaskModal(item)"
+                    @click="openWorkItemModal(item, 'todo')"
                   >
-                    <div class="flex items-center gap-2">
-                      <v-icon size="16" color="primary">mdi-checkbox-marked-circle-outline</v-icon>
-                      <div>
-                        <div class="text-sm font-medium">{{ item.title }}</div>
-                        <div class="text-xs text-gray-400 mt-0.5">Todo • {{ formatDate(item.created_at) }}</div>
+                    <div class="flex items-start gap-2">
+                      <v-icon size="16" color="primary" class="mt-0.5">mdi-checkbox-marked-circle-outline</v-icon>
+                      <div class="flex-1 min-w-0">
+                        <div class="text-sm font-medium truncate">{{ item.title }}</div>
+                        <div class="flex items-center gap-1.5 mt-1">
+                          <v-chip v-if="item.hash_task" size="x-small" variant="outlined" class="font-mono font-bold" color="primary">
+                            <v-icon size="10" class="mr-0.5">mdi-pound</v-icon>
+                            {{ item.hash_task }}
+                          </v-chip>
+                          <span class="text-xs text-gray-400">Todo</span>
+                        </div>
                       </div>
                     </div>
                   </v-card>
@@ -80,7 +103,7 @@
                 <span class="text-xs">Trống</span>
               </div>
 
-              <!-- Inline quick add (tạo task) -->
+              <!-- Inline quick add -->
               <div class="mt-2 px-1">
                 <div v-if="showAddForm[column.name]" class="inline-add-form">
                   <v-text-field
@@ -121,7 +144,7 @@
       </v-container>
     </div>
 
-    <TaskModal v-model="taskModalVisible" :task="selectedTask" @saved="onTaskSaved" />
+    <WorkItemModal v-model="workItemModalVisible" :item="selectedWorkItem" :item-type="selectedItemType" @saved="onItemSaved" />
 
     <v-btn
       color="primary"
@@ -139,7 +162,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue';
 import AppBar from '../components/AppBar.vue';
 import TaskCard from '../components/TaskCard.vue';
-import TaskModal from '../components/TaskModal.vue';
+import WorkItemModal from '../components/WorkItemModal.vue';
 import draggable from 'vuedraggable';
 import { useTaskStore } from '../stores/task';
 import { useTodoStore } from '../stores/todo';
@@ -155,10 +178,10 @@ const { show } = useToast();
 const categories = ref([]);
 const activeCategory = ref(null);
 const activeSubcategory = ref(null);
-const taskModalVisible = ref(false);
-const selectedTask = ref(null);
+const workItemModalVisible = ref(false);
+const selectedWorkItem = ref(null);
+const selectedItemType = ref('task');
 
-// Dynamic columns - built from category_statuses
 const columns = ref([]);
 const localLists = reactive({});
 
@@ -166,22 +189,17 @@ const showAddForm = reactive({});
 const newTaskTitle = reactive({});
 const adding = reactive({});
 
+const collapsedSubs = reactive(new Set());
+const activeSubTabParent = ref(null);
+
 const selectedCategory = computed(() => categories.value.find(c => c.id === activeCategory.value));
 
 function initReactiveForStatuses(statuses) {
   for (const s of statuses) {
-    if (!(s.name in localLists)) {
-      localLists[s.name] = [];
-    }
-    if (!(s.name in showAddForm)) {
-      showAddForm[s.name] = false;
-    }
-    if (!(s.name in newTaskTitle)) {
-      newTaskTitle[s.name] = '';
-    }
-    if (!(s.name in adding)) {
-      adding[s.name] = false;
-    }
+    if (!(s.name in localLists)) localLists[s.name] = [];
+    if (!(s.name in showAddForm)) showAddForm[s.name] = false;
+    if (!(s.name in newTaskTitle)) newTaskTitle[s.name] = '';
+    if (!(s.name in adding)) adding[s.name] = false;
   }
 }
 
@@ -191,6 +209,22 @@ function getColumnList(statusName) {
 
 function columnTasksCount(statusName) {
   return getColumnList(statusName)?.length || 0;
+}
+
+function toggleSubcategory(subId) {
+  if (activeSubcategory.value === subId) {
+    activeSubcategory.value = null;
+  } else {
+    activeSubcategory.value = subId;
+  }
+}
+
+function toggleCollapse(sub) {
+  if (collapsedSubs.has(sub.id)) {
+    collapsedSubs.delete(sub.id);
+  } else {
+    collapsedSubs.add(sub.id);
+  }
 }
 
 function formatDate(date) {
@@ -214,7 +248,6 @@ function updateLocalLists() {
 
   initReactiveForStatuses(statuses);
 
-  // Reset all lists
   for (const s of statuses) {
     localLists[s.name] = [];
   }
@@ -229,7 +262,6 @@ function updateLocalLists() {
     if (activeSubcategory.value) {
       filtered = filtered.filter(t => t.subcategory_id === activeSubcategory.value);
     }
-    // Find matching column by status key (exact match or fallback)
     const matchedColumn = statuses.find(s => s.name === statusKey);
     if (matchedColumn) {
       localLists[matchedColumn.name] = [
@@ -239,7 +271,7 @@ function updateLocalLists() {
     }
   }
 
-  // Add todos that have this category
+  // Add todos
   const allTodos = todoStore.todos || [];
   let filteredTodos = allTodos;
   if (activeCategory.value) {
@@ -248,7 +280,6 @@ function updateLocalLists() {
   if (activeSubcategory.value) {
     filteredTodos = filteredTodos.filter(t => t.subcategory_id === activeSubcategory.value);
   }
-  // Put unassigned todos (is_done=false) in first column, done todos in "Hoàn thành" column
   for (const todo of filteredTodos) {
     if (todo.is_done) {
       const doneColumn = statuses.find(s => s.name === 'Hoàn thành');
@@ -292,7 +323,7 @@ async function onDragEnd(event, newStatusName) {
   } else if (itemType === 'todo') {
     const isDone = newStatusName === 'Hoàn thành';
     try {
-      await todoStore.updateTodo(itemId, { is_done: isDone ? 1 : 0 });
+      await todoStore.updateTodo(itemId, { is_done: isDone ? 1 : 0, status: newStatusName });
       show(`Đã cập nhật todo "${item.title}"`, 'success');
       await loadData();
     } catch (err) {
@@ -315,15 +346,16 @@ async function loadData() {
   updateLocalLists();
 }
 
-function openTaskModal(item = null) {
-  if (item?.__type === 'todo') return; // cannot edit todo in task modal
-  selectedTask.value = item;
-  taskModalVisible.value = true;
+function openWorkItemModal(item = null, type = 'task') {
+  selectedWorkItem.value = item;
+  selectedItemType.value = type;
+  workItemModalVisible.value = true;
 }
 
 function openCreateModal() {
-  selectedTask.value = null;
-  taskModalVisible.value = true;
+  selectedWorkItem.value = null;
+  selectedItemType.value = 'task';
+  workItemModalVisible.value = true;
 }
 
 async function quickAddTask(statusName) {
@@ -353,13 +385,16 @@ function cancelAdd(statusName) {
   newTaskTitle[statusName] = '';
 }
 
-async function onTaskSaved() {
+async function onItemSaved() {
   await loadData();
 }
 
 socket.on('task_updated', () => loadData());
 socket.on('task_created', () => loadData());
 socket.on('task_deleted', () => loadData());
+socket.on('todo_updated', () => loadData());
+socket.on('todo_created', () => loadData());
+socket.on('todo_deleted', () => loadData());
 socket.on('category_status_created', () => loadData());
 socket.on('category_status_updated', () => loadData());
 socket.on('category_status_deleted', () => loadData());
@@ -376,43 +411,34 @@ watch(activeSubcategory, () => updateLocalLists());
 .app-content {
   padding-top: 64px;
 }
-
 .kanban-board-container {
   scrollbar-width: thin;
 }
-
 .kanban-column {
   transition: all 0.2s ease;
   max-height: calc(100vh - 280px);
   overflow-y: auto;
 }
-
 .kanban-column::-webkit-scrollbar {
   width: 4px;
 }
-
 .kanban-column::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.08);
   border-radius: 10px;
 }
-
 .kanban-column::-webkit-scrollbar-track {
   background: transparent;
 }
-
 :deep(.dragging-ghost) {
   opacity: 0.4;
   transform: rotate(2deg);
 }
-
 :deep(.sortable-chosen) {
   transform: scale(1.02);
 }
-
 :deep(.sortable-ghost) {
   opacity: 0.3;
 }
-
 .add-task-btn {
   opacity: 0.6;
   transition: opacity 0.2s;
@@ -420,17 +446,31 @@ watch(activeSubcategory, () => updateLocalLists());
 .add-task-btn:hover {
   opacity: 1;
 }
-
 .category-tabs :deep(.v-tab) {
   text-transform: none !important;
   font-weight: 500;
   letter-spacing: normal;
 }
-
-.subcategory-tabs :deep(.v-tab) {
-  text-transform: none !important;
-  font-weight: 400;
-  letter-spacing: normal;
-  min-width: unset;
+.subcategory-tree {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 0;
+}
+.sub-tab-item {
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+}
+.sub-tab-item:hover {
+  background: rgba(30, 60, 114, 0.06);
+}
+.sub-tab-active {
+  background: rgba(30, 60, 114, 0.1) !important;
+  color: #1E3C72 !important;
+  font-weight: 600 !important;
+  border-color: rgba(30, 60, 114, 0.2) !important;
+}
+.sub-tab-child {
+  border-left: 2px solid rgba(30, 60, 114, 0.15);
 }
 </style>

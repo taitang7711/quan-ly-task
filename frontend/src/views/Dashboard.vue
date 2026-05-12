@@ -139,8 +139,8 @@ async function loadData() {
     stats.value = [
       { label: 'Tổng số task', value: data.total_tasks, icon: 'mdi-view-dashboard', color: '#1E3C72' },
       { label: 'Quá hạn', value: data.overdue_tasks, icon: 'mdi-alert', color: '#EF4444' },
-      { label: 'Đang thực hiện', value: data.by_status?.find(s => s.status === 'in_progress')?.count || 0, icon: 'mdi-progress-clock', color: '#F59E0B' },
-      { label: 'Hoàn thành', value: data.by_status?.find(s => s.status === 'done')?.count || 0, icon: 'mdi-check-circle', color: '#10B981' },
+      { label: 'Đang thực hiện', value: data.by_status?.find(s => s.status === 'Đang làm')?.count || 0, icon: 'mdi-progress-clock', color: '#F59E0B' },
+      { label: 'Hoàn thành', value: data.by_status?.find(s => s.status === 'Hoàn thành')?.count || 0, icon: 'mdi-check-circle', color: '#10B981' },
     ];
 
     if (statusChartInstance) statusChartInstance.destroy();
@@ -152,7 +152,7 @@ async function loadData() {
         data: {
           labels: ['Cần làm', 'Đang làm', 'Xem lại', 'Hoàn thành'],
           datasets: [{
-            data: ['todo', 'in_progress', 'review', 'done'].map(s => data.by_status.find(st => st.status === s)?.count || 0),
+            data: ['Cần làm', 'Đang làm', 'Xem lại', 'Hoàn thành'].map(s => data.by_status.find(st => st.status === s)?.count || 0),
             backgroundColor: ['#1E3C72', '#2A5298', '#5DADE2', '#10B981'],
             borderWidth: 0,
           }]

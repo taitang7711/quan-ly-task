@@ -2,6 +2,11 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
 const { authenticateToken } = require('../middleware/auth');
+const crypto = require('crypto');
+
+function generateHash() {
+  return 'TASK-' + crypto.randomBytes(2).toString('hex').toUpperCase();
+}
 
 // GET /api/tasks - Get all tasks with filtering
 router.get('/', authenticateToken, async (req, res) => {
@@ -143,6 +148,16 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Task title is required' });
     }
 
+    // Generate unique hash_task
+    let hash_task = generateHash();
+    let retry = 0;
+    while (retry < 5) {
+      const [existing] = await pool.query('SELECT id FROM tasks WHERE hash_task = ?', [hash_task]);
+      if (existing.length === 0) break;
+      hash_task = generateHash();
+      retry++;
+    }
+
     // Get max board position for status
     const [maxPos] = await pool.query(
       'SELECT COALESCE(MAX(board_position), -1) as max_pos FROM tasks WHERE status = ?',
@@ -151,10 +166,11 @@ router.post('/', authenticateToken, async (req, res) => {
 
     const [result] = await pool.query(
       `INSERT INTO tasks
-       (title, description, category_id, subcategory_id, status, priority,
+       (hash_task, title, description, category_id, subcategory_id, status, priority,
         assignee_id, due_date, estimated_hours, parent_task_id, board_position, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        hash_task,
         title,
         description || null,
         category_id || null,
@@ -197,7 +213,9 @@ router.put('/:id', authenticateToken, async (req, res) => {
     const allowedFields = [
       'title', 'description', 'category_id', 'subcategory_id',
       'status', 'priority', 'assignee_id', 'due_date',
-      'estimated_hours', 'actual_hours', 'board_position'
+      'estimated_hours', 'actual_hours', 'board_position',
+      'start_time', 'end_time', 'estimated_duration', 'actual_duration',
+      'timer_status', 'timer_started_at', 'total_paused_seconds'
     ];
 
     const [existing] = await pool.query('SELECT * FROM tasks WHERE id = ?', [id]);
@@ -365,7 +383,7 @@ router.get('/stats/summary', authenticateToken, async (req, res) => {
     );
 
     const [overdue] = await pool.query(
-      "SELECT COUNT(*) as count FROM tasks WHERE due_date < NOW() AND status != 'done'"
+      "SELECT COUNT(*) as count FROM tasks WHERE due_date < NOW() AND status != 'Hoàn thành'"
     );
 
     const [total] = await pool.query('SELECT COUNT(*) as count FROM tasks');
@@ -379,6 +397,92 @@ router.get('/stats/summary', authenticateToken, async (req, res) => {
     });
   } catch (err) {
     console.error('Stats error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Timer endpoints
+
+// POST /api/tasks/:id/timer/start - Start timer
+router.post('/:id/timer/start', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const now = new Date();
+    await pool.query(
+      'UPDATE tasks SET timer_status = ?, timer_started_at = ?, start_time = COALESCE(start_time, ?) WHERE id = ?',
+      ['running', now, now, id]
+    );
+    const [updated] = await pool.query('SELECT id, hash_task, timer_status, timer_started_at, total_paused_seconds, start_time FROM tasks WHERE id = ?', [id]);
+    if (updated.length === 0) return res.status(404).json({ error: 'Task not found' });
+    if (req.io) req.io.emit('task_updated', updated[0]);
+    res.json({ task: updated[0] });
+  } catch (err) {
+    console.error('Start timer error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /api/tasks/:id/timer/pause - Pause timer
+router.post('/:id/timer/pause', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [task] = await pool.query('SELECT timer_started_at, total_paused_seconds FROM tasks WHERE id = ?', [id]);
+    if (task.length === 0) return res.status(404).json({ error: 'Task not found' });
+    const elapsed = Math.floor((new Date() - new Date(task[0].timer_started_at)) / 1000);
+    const totalPaused = (task[0].total_paused_seconds || 0) + elapsed;
+    await pool.query(
+      'UPDATE tasks SET timer_status = ?, total_paused_seconds = ?, timer_started_at = NULL WHERE id = ?',
+      ['paused', totalPaused, id]
+    );
+    const [updated] = await pool.query('SELECT id, hash_task, timer_status, timer_started_at, total_paused_seconds FROM tasks WHERE id = ?', [id]);
+    if (req.io) req.io.emit('task_updated', updated[0]);
+    res.json({ task: updated[0] });
+  } catch (err) {
+    console.error('Pause timer error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /api/tasks/:id/timer/resume - Resume timer
+router.post('/:id/timer/resume', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const now = new Date();
+    await pool.query(
+      'UPDATE tasks SET timer_status = ?, timer_started_at = ? WHERE id = ?',
+      ['running', now, id]
+    );
+    const [updated] = await pool.query('SELECT id, hash_task, timer_status, timer_started_at, total_paused_seconds FROM tasks WHERE id = ?', [id]);
+    if (req.io) req.io.emit('task_updated', updated[0]);
+    res.json({ task: updated[0] });
+  } catch (err) {
+    console.error('Resume timer error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /api/tasks/:id/timer/stop - Stop timer and record actual_duration
+router.post('/:id/timer/stop', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [task] = await pool.query('SELECT timer_status, timer_started_at, total_paused_seconds FROM tasks WHERE id = ?', [id]);
+    if (task.length === 0) return res.status(404).json({ error: 'Task not found' });
+    const now = new Date();
+    let totalSeconds = task[0].total_paused_seconds || 0;
+    if (task[0].timer_status === 'running' && task[0].timer_started_at) {
+      totalSeconds += Math.floor((now - new Date(task[0].timer_started_at)) / 1000);
+    }
+    const actualMinutes = Math.round(totalSeconds / 60);
+    const actualHours = (actualMinutes / 60).toFixed(1);
+    await pool.query(
+      'UPDATE tasks SET timer_status = ?, timer_started_at = NULL, total_paused_seconds = 0, actual_duration = ?, actual_hours = ?, end_time = ? WHERE id = ?',
+      ['stopped', actualMinutes, actualHours, now, id]
+    );
+    const [updated] = await pool.query('SELECT * FROM tasks WHERE id = ?', [id]);
+    if (req.io) req.io.emit('task_updated', updated[0]);
+    res.json({ task: updated[0], duration_minutes: actualMinutes });
+  } catch (err) {
+    console.error('Stop timer error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });

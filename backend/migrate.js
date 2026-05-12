@@ -283,6 +283,262 @@ async function migrate() {
     console.log('  ✓ Default subcategories seeded');
   }
 
+  // --- Migration v2: Add hash_task, time tracking, timer fields ---
+
+  // Tasks: add hash_task
+  try {
+    await connection.query(
+      'ALTER TABLE tasks ADD COLUMN hash_task VARCHAR(20) DEFAULT NULL AFTER id'
+    );
+    console.log('  ✓ Added hash_task to tasks');
+  } catch (e) {
+    if (!e.message.includes('Duplicate column')) throw e;
+  }
+  try {
+    await connection.query(
+      'ALTER TABLE tasks ADD UNIQUE INDEX idx_hash_task (hash_task)'
+    );
+  } catch (e) {
+    if (!e.message.includes('Duplicate')) throw e;
+  }
+
+  // Tasks: add time tracking fields
+  try {
+    await connection.query(
+      'ALTER TABLE tasks ADD COLUMN start_time DATETIME DEFAULT NULL AFTER actual_hours'
+    );
+    console.log('  ✓ Added start_time to tasks');
+  } catch (e) {
+    if (!e.message.includes('Duplicate column')) throw e;
+  }
+  try {
+    await connection.query(
+      'ALTER TABLE tasks ADD COLUMN end_time DATETIME DEFAULT NULL AFTER start_time'
+    );
+  } catch (e) {
+    if (!e.message.includes('Duplicate column')) throw e;
+  }
+  try {
+    await connection.query(
+      'ALTER TABLE tasks ADD COLUMN estimated_duration INT DEFAULT NULL AFTER end_time COMMENT "Estimated duration in minutes"'
+    );
+  } catch (e) {
+    if (!e.message.includes('Duplicate column')) throw e;
+  }
+  try {
+    await connection.query(
+      'ALTER TABLE tasks ADD COLUMN actual_duration INT DEFAULT NULL AFTER estimated_duration COMMENT "Actual duration in minutes"'
+    );
+  } catch (e) {
+    if (!e.message.includes('Duplicate column')) throw e;
+  }
+  try {
+    await connection.query(
+      'ALTER TABLE tasks ADD COLUMN timer_status ENUM("running","paused","stopped") DEFAULT NULL AFTER actual_duration'
+    );
+  } catch (e) {
+    if (!e.message.includes('Duplicate column')) throw e;
+  }
+  try {
+    await connection.query(
+      'ALTER TABLE tasks ADD COLUMN timer_started_at DATETIME DEFAULT NULL AFTER timer_status'
+    );
+  } catch (e) {
+    if (!e.message.includes('Duplicate column')) throw e;
+  }
+  try {
+    await connection.query(
+      'ALTER TABLE tasks ADD COLUMN total_paused_seconds INT DEFAULT 0 AFTER timer_started_at'
+    );
+  } catch (e) {
+    if (!e.message.includes('Duplicate column')) throw e;
+  }
+
+  // Todos: add hash_task
+  try {
+    await connection.query(
+      'ALTER TABLE todos ADD COLUMN hash_task VARCHAR(20) DEFAULT NULL AFTER id'
+    );
+    console.log('  ✓ Added hash_task to todos');
+  } catch (e) {
+    if (!e.message.includes('Duplicate column')) throw e;
+  }
+  try {
+    await connection.query(
+      'ALTER TABLE todos ADD UNIQUE INDEX idx_todo_hash_task (hash_task)'
+    );
+  } catch (e) {
+    if (!e.message.includes('Duplicate')) throw e;
+  }
+
+  // Todos: add status, priority, assignee, due_date, time tracking, description
+  try {
+    await connection.query(
+      "ALTER TABLE todos ADD COLUMN description TEXT DEFAULT NULL AFTER title"
+    );
+  } catch (e) {
+    if (!e.message.includes('Duplicate column')) throw e;
+  }
+  try {
+    await connection.query(
+      "ALTER TABLE todos ADD COLUMN status VARCHAR(50) DEFAULT 'Cần làm' AFTER description"
+    );
+  } catch (e) {
+    if (!e.message.includes('Duplicate column')) throw e;
+  }
+  try {
+    await connection.query(
+      "ALTER TABLE todos ADD COLUMN priority ENUM('low','medium','high','urgent') DEFAULT 'medium' AFTER status"
+    );
+  } catch (e) {
+    if (!e.message.includes('Duplicate column')) throw e;
+  }
+  try {
+    await connection.query(
+      'ALTER TABLE todos ADD COLUMN assignee_id INT DEFAULT NULL AFTER priority'
+    );
+  } catch (e) {
+    if (!e.message.includes('Duplicate column')) throw e;
+  }
+  try {
+    await connection.query(
+      'ALTER TABLE todos ADD COLUMN due_date DATETIME DEFAULT NULL AFTER assignee_id'
+    );
+  } catch (e) {
+    if (!e.message.includes('Duplicate column')) throw e;
+  }
+  try {
+    await connection.query(
+      'ALTER TABLE todos ADD COLUMN estimated_hours DECIMAL(5,1) DEFAULT NULL AFTER due_date'
+    );
+  } catch (e) {
+    if (!e.message.includes('Duplicate column')) throw e;
+  }
+  try {
+    await connection.query(
+      'ALTER TABLE todos ADD COLUMN actual_hours DECIMAL(5,1) DEFAULT NULL AFTER estimated_hours'
+    );
+  } catch (e) {
+    if (!e.message.includes('Duplicate column')) throw e;
+  }
+  try {
+    await connection.query(
+      'ALTER TABLE todos ADD COLUMN start_time DATETIME DEFAULT NULL AFTER actual_hours'
+    );
+  } catch (e) {
+    if (!e.message.includes('Duplicate column')) throw e;
+  }
+  try {
+    await connection.query(
+      'ALTER TABLE todos ADD COLUMN end_time DATETIME DEFAULT NULL AFTER start_time'
+    );
+  } catch (e) {
+    if (!e.message.includes('Duplicate column')) throw e;
+  }
+  try {
+    await connection.query(
+      'ALTER TABLE todos ADD COLUMN estimated_duration INT DEFAULT NULL AFTER end_time'
+    );
+  } catch (e) {
+    if (!e.message.includes('Duplicate column')) throw e;
+  }
+  try {
+    await connection.query(
+      'ALTER TABLE todos ADD COLUMN actual_duration INT DEFAULT NULL AFTER estimated_duration'
+    );
+  } catch (e) {
+    if (!e.message.includes('Duplicate column')) throw e;
+  }
+  try {
+    await connection.query(
+      'ALTER TABLE todos ADD COLUMN timer_status ENUM("running","paused","stopped") DEFAULT NULL AFTER actual_duration'
+    );
+  } catch (e) {
+    if (!e.message.includes('Duplicate column')) throw e;
+  }
+  try {
+    await connection.query(
+      'ALTER TABLE todos ADD COLUMN timer_started_at DATETIME DEFAULT NULL AFTER timer_status'
+    );
+  } catch (e) {
+    if (!e.message.includes('Duplicate column')) throw e;
+  }
+  try {
+    await connection.query(
+      'ALTER TABLE todos ADD COLUMN total_paused_seconds INT DEFAULT 0 AFTER timer_started_at'
+    );
+  } catch (e) {
+    if (!e.message.includes('Duplicate column')) throw e;
+  }
+
+  // Todos: add comment support (todo_comments table)
+  try {
+    await connection.query(
+      `CREATE TABLE IF NOT EXISTS todo_comments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        todo_id INT NOT NULL,
+        user_id INT DEFAULT NULL,
+        content TEXT NOT NULL,
+        is_ai BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (todo_id) REFERENCES todos(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+      ) ENGINE=InnoDB`
+    );
+    console.log('  ✓ Created todo_comments table');
+  } catch (e) {
+    if (!e.message.includes('Duplicate')) throw e;
+  }
+
+  // Todos: add FK for assignee
+  try {
+    await connection.query(
+      'ALTER TABLE todos ADD FOREIGN KEY (assignee_id) REFERENCES users(id) ON DELETE SET NULL'
+    );
+  } catch (e) {
+    if (!e.message.includes('Duplicate foreign key') && !e.message.includes('errno: 1065')) throw e;
+  }
+
+  // Subcategories: add parent_subcategory_id, icon, color for nesting
+  try {
+    await connection.query(
+      'ALTER TABLE subcategories ADD COLUMN parent_subcategory_id INT DEFAULT NULL AFTER category_id'
+    );
+    console.log('  ✓ Added parent_subcategory_id to subcategories');
+  } catch (e) {
+    if (!e.message.includes('Duplicate column')) throw e;
+  }
+  try {
+    await connection.query(
+      'ALTER TABLE subcategories ADD COLUMN icon VARCHAR(50) DEFAULT "mdi-folder-outline" AFTER parent_subcategory_id'
+    );
+  } catch (e) {
+    if (!e.message.includes('Duplicate column')) throw e;
+  }
+  try {
+    await connection.query(
+      "ALTER TABLE subcategories ADD COLUMN color VARCHAR(7) DEFAULT '#1E3C72' AFTER icon"
+    );
+  } catch (e) {
+    if (!e.message.includes('Duplicate column')) throw e;
+  }
+
+  // Generate hash_task for existing tasks and todos
+  const crypto = require('crypto');
+  const [existingTasks] = await connection.query('SELECT id FROM tasks WHERE hash_task IS NULL');
+  for (const t of existingTasks) {
+    const hash = 'TASK-' + crypto.randomBytes(2).toString('hex').toUpperCase();
+    await connection.query('UPDATE tasks SET hash_task = ? WHERE id = ?', [hash, t.id]);
+  }
+  if (existingTasks.length > 0) console.log(`  ✓ Generated hash_task for ${existingTasks.length} existing tasks`);
+
+  const [existingTodos] = await connection.query('SELECT id FROM todos WHERE hash_task IS NULL');
+  for (const t of existingTodos) {
+    const hash = 'TODO-' + crypto.randomBytes(2).toString('hex').toUpperCase();
+    await connection.query('UPDATE todos SET hash_task = ? WHERE id = ?', [hash, t.id]);
+  }
+  if (existingTodos.length > 0) console.log(`  ✓ Generated hash_task for ${existingTodos.length} existing todos`);
+
   await connection.end();
   console.log('\n✅ Migration completed successfully!');
   process.exit(0);

@@ -120,27 +120,35 @@ router.post('/priority-suggest', authenticateToken, async (req, res) => {
   }
 });
 
-// POST /api/ai/suggest-improvements - AI gợi ý cải thiện task
+// POST /api/ai/suggest-improvements - AI gợi ý cải thiện task/todo
 router.post('/suggest-improvements', authenticateToken, async (req, res) => {
   try {
-    const { task_id } = req.body;
+    const { task_id, item_type } = req.body;
+    const isTodo = item_type === 'todo';
 
-    let taskInfo = '';
+    let itemInfo = '';
+    let itemTitle = '';
     if (task_id) {
-      const [tasks] = await pool.query(
-        'SELECT * FROM tasks WHERE id = ?',
-        [task_id]
-      );
-      if (tasks.length > 0) {
-        taskInfo = `Task: ${tasks[0].title}, Status: ${tasks[0].status}, Priority: ${tasks[0].priority}`;
+      if (isTodo) {
+        const [items] = await pool.query('SELECT * FROM todos WHERE id = ?', [task_id]);
+        if (items.length > 0) {
+          itemInfo = `Todo: ${items[0].title}, Status: ${items[0].status || 'todo'}, Priority: ${items[0].priority || 'medium'}`;
+          itemTitle = items[0].title;
+        }
+      } else {
+        const [tasks] = await pool.query('SELECT * FROM tasks WHERE id = ?', [task_id]);
+        if (tasks.length > 0) {
+          itemInfo = `Task: ${tasks[0].title}, Status: ${tasks[0].status}, Priority: ${tasks[0].priority}`;
+          itemTitle = tasks[0].title;
+        }
       }
     }
 
-    const prompt = 'Improvement suggestions for: ' + taskInfo;
-    let aiResponse = await callAI(pool, req.user.id, `Hãy đưa ra gợi ý cải thiện cho task sau:\n${taskInfo}\n\nTrả lời bằng tiếng Việt.`, 'suggest', task_id);
+    const prompt = 'Improvement suggestions for: ' + itemInfo;
+    let aiResponse = await callAI(pool, req.user.id, `Hãy đưa ra gợi ý cải thiện cho ${isTodo ? 'todo' : 'task'} sau:\n${itemInfo}\n\nTrả lời bằng tiếng Việt.`, 'suggest', task_id);
 
     if (!aiResponse) {
-      aiResponse = generateAISuggestion(taskInfo, 'suggest');
+      aiResponse = generateAISuggestion(itemInfo, 'suggest');
       await pool.query(
         'INSERT INTO ai_interactions (user_id, task_id, prompt, response, type) VALUES (?, ?, ?, ?, ?)',
         [req.user.id, task_id || null, prompt, JSON.stringify(aiResponse), 'suggest']
@@ -148,14 +156,21 @@ router.post('/suggest-improvements', authenticateToken, async (req, res) => {
     }
 
     if (task_id) {
-      await pool.query(
-        'INSERT INTO task_comments (task_id, user_id, content, is_ai) VALUES (?, ?, ?, ?)',
-        [task_id, req.user.id, '🤖 AI: ' + aiResponse.suggestion, true]
-      );
-      await pool.query(
-        'UPDATE tasks SET ai_suggestions = ? WHERE id = ?',
-        [JSON.stringify(aiResponse), task_id]
-      );
+      if (isTodo) {
+        await pool.query(
+          'INSERT INTO todo_comments (todo_id, user_id, content, is_ai) VALUES (?, ?, ?, ?)',
+          [task_id, req.user.id, '🤖 AI: ' + aiResponse.suggestion, true]
+        );
+      } else {
+        await pool.query(
+          'INSERT INTO task_comments (task_id, user_id, content, is_ai) VALUES (?, ?, ?, ?)',
+          [task_id, req.user.id, '🤖 AI: ' + aiResponse.suggestion, true]
+        );
+        await pool.query(
+          'UPDATE tasks SET ai_suggestions = ? WHERE id = ?',
+          [JSON.stringify(aiResponse), task_id]
+        );
+      }
     }
 
     res.json({ result: aiResponse });
@@ -175,7 +190,7 @@ router.post('/check-blockers', authenticateToken, async (req, res) => {
     }
 
     const [tasks] = await pool.query(
-      "SELECT * FROM tasks WHERE id = ? AND status = 'in_progress'",
+      "SELECT * FROM tasks WHERE id = ? AND status = 'Đang làm'",
       [task_id]
     );
 
