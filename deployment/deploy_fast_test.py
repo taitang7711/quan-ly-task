@@ -175,8 +175,8 @@ def test_deployment(ssh):
     """Simple health checks - migration runs on container startup."""
     print_status("Testing deployment...")
     # Wait for backend to initialize (MySQL + migration)
-    print_status("Waiting for backend to start (15s)...")
-    time.sleep(15)
+    print_status("Waiting for backend to start (30s)...")
+    time.sleep(30)
     # Check backend health
     exit_status, out, err = run_sudo_cmd(ssh, "curl -s http://localhost:5000/api/health")
     if "ok" in out:
