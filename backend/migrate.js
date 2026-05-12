@@ -250,7 +250,7 @@ async function migrate() {
       ['Xem lại', '#5DADE2', 3],
       ['Hoàn thành', '#10B981', 4]
     ];
-    for (const [cat] of cats[0]) {
+    for (const cat of cats[0]) {
       for (const [name, color, order] of defaultStatuses) {
         await connection.query(
           'INSERT INTO category_statuses (category_id, name, color, sort_order) VALUES (?, ?, ?, ?)',
