@@ -24,10 +24,10 @@ if sys.platform == "win32":
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 # Configuration
-SERVER_IP = "192.168.0.110"
+SERVER_IP = "18.139.219.244"
 SERVER_USER = "taitang96"
 SERVER_PASSWORD = "vinhtai1511"
-SERVER_PORT = 22
+SERVER_PORT = 2222
 REMOTE_DIR = "/home/taitang96/task-app"
 GITHUB_REPO_URL = None  # Will be detected from local git remote
 GITHUB_TOKEN = ""
