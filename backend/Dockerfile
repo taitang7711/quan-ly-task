@@ -2,13 +2,13 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy package files first to leverage Docker cache
+RUN apk add --no-cache openssl
+
 COPY package*.json ./
 RUN npm install --only=production
 
-# Copy source code
 COPY . .
 
 EXPOSE 5000
 
-CMD ["node", "server.js"]
+CMD ["sh", "-c", "node migrate.js && node server.js"]
