@@ -320,14 +320,14 @@ async function migrate() {
   }
   try {
     await connection.query(
-      'ALTER TABLE tasks ADD COLUMN estimated_duration INT DEFAULT NULL AFTER end_time COMMENT "Estimated duration in minutes"'
+      'ALTER TABLE tasks ADD COLUMN estimated_duration INT DEFAULT NULL AFTER end_time'
     );
   } catch (e) {
     if (!e.message.includes('Duplicate column')) throw e;
   }
   try {
     await connection.query(
-      'ALTER TABLE tasks ADD COLUMN actual_duration INT DEFAULT NULL AFTER estimated_duration COMMENT "Actual duration in minutes"'
+      'ALTER TABLE tasks ADD COLUMN actual_duration INT DEFAULT NULL AFTER estimated_duration'
     );
   } catch (e) {
     if (!e.message.includes('Duplicate column')) throw e;
