@@ -15,6 +15,7 @@ describe('Task Manager API Tests', () => {
     await pool.query('DELETE FROM users WHERE username LIKE ?', ['testuser_%']);
     await pool.query('DELETE FROM tasks WHERE title LIKE ?', ['%Test Task%']);
     await pool.query('DELETE FROM categories WHERE name LIKE ?', ['%Test Category%']);
+    await pool.query('DELETE FROM todos WHERE title LIKE ?', ['%Test Todo%']);
   });
 
   afterAll(async () => {
@@ -153,6 +154,56 @@ describe('Task Manager API Tests', () => {
         .set('Authorization', `Bearer ${authToken}`);
       expect(res.statusCode).toBe(200);
       expect(Array.isArray(res.body.reports)).toBe(true);
+    });
+  });
+
+  describe('Todos', () => {
+    let todoId = '';
+
+    test('POST /api/todos - should create a new todo', async () => {
+      const res = await request(app)
+        .post('/api/todos')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ title: 'Test Todo' });
+      expect(res.statusCode).toBe(201);
+      expect(res.body.todo).toHaveProperty('id');
+      expect(res.body.todo.title).toBe('Test Todo');
+      expect(res.body.todo.is_done).toBe(0);
+      todoId = res.body.todo.id;
+    });
+
+    test('GET /api/todos - should list todos', async () => {
+      const res = await request(app)
+        .get('/api/todos')
+        .set('Authorization', `Bearer ${authToken}`);
+      expect(res.statusCode).toBe(200);
+      expect(Array.isArray(res.body.todos)).toBe(true);
+      expect(res.body.todos.length).toBeGreaterThanOrEqual(1);
+    });
+
+    test('PUT /api/todos/:id - should toggle todo done', async () => {
+      const res = await request(app)
+        .put(`/api/todos/${todoId}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ is_done: 1 });
+      expect(res.statusCode).toBe(200);
+      expect(res.body.todo.is_done).toBe(1);
+    });
+
+    test('PUT /api/todos/:id - should update todo title', async () => {
+      const res = await request(app)
+        .put(`/api/todos/${todoId}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ title: 'Updated Todo' });
+      expect(res.statusCode).toBe(200);
+      expect(res.body.todo.title).toBe('Updated Todo');
+    });
+
+    test('DELETE /api/todos/:id - should delete todo', async () => {
+      const res = await request(app)
+        .delete(`/api/todos/${todoId}`)
+        .set('Authorization', `Bearer ${authToken}`);
+      expect(res.statusCode).toBe(200);
     });
   });
 

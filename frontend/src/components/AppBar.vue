@@ -19,6 +19,10 @@
           <v-icon size="18" class="mr-1">mdi-view-dashboard-outline</v-icon>
           Dashboard
         </v-btn>
+        <v-btn to="/todos" variant="text" class="nav-btn" :class="{ 'nav-active': $route.path === '/todos' }">
+          <v-icon size="18" class="mr-1">mdi-checkbox-marked-circle-outline</v-icon>
+          Todo
+        </v-btn>
         <v-btn to="/kanban" variant="text" class="nav-btn" :class="{ 'nav-active': $route.path === '/kanban' }">
           <v-icon size="18" class="mr-1">mdi-view-column-outline</v-icon>
           Kanban
@@ -103,6 +107,10 @@
         <v-list-item to="/" @click="drawer = false" class="rounded-lg mb-1">
           <template v-slot:prepend><v-icon>mdi-view-dashboard-outline</v-icon></template>
           <v-list-item-title>Dashboard</v-list-item-title>
+        </v-list-item>
+        <v-list-item to="/todos" @click="drawer = false" class="rounded-lg mb-1">
+          <template v-slot:prepend><v-icon>mdi-checkbox-marked-circle-outline</v-icon></template>
+          <v-list-item-title>Todo</v-list-item-title>
         </v-list-item>
         <v-list-item to="/kanban" @click="drawer = false" class="rounded-lg mb-1">
           <template v-slot:prepend><v-icon>mdi-view-column-outline</v-icon></template>

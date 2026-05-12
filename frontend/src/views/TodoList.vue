@@ -1,0 +1,190 @@
+<template>
+  <div>
+    <AppBar />
+    <div class="app-content">
+      <v-container fluid class="pa-4 pt-2" style="max-width: 800px;">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-9 h-9 rounded-xl gradient-bg flex items-center justify-center shadow-md">
+            <v-icon color="white" size="20">mdi-checkbox-marked-circle-outline</v-icon>
+          </div>
+          <h1 class="text-xl font-extrabold gradient-text">Todo List</h1>
+        </div>
+
+        <!-- Quick Add -->
+        <v-card class="pa-3 rounded-2xl mb-4">
+          <form @submit.prevent="addTodo" class="flex items-center gap-2">
+            <v-text-field
+              v-model="newTodoTitle"
+              placeholder="Nhập todo mới..."
+              hide-details
+              variant="solo-filled"
+              flat
+              density="compact"
+              class="flex-grow-1"
+              @keyup.enter="addTodo"
+            />
+            <v-btn color="primary" type="submit" :disabled="!newTodoTitle.trim()" class="rounded-xl" min-width="100">
+              <v-icon size="18" class="mr-1">mdi-plus</v-icon>
+              Thêm
+            </v-btn>
+          </form>
+        </v-card>
+
+        <!-- Filter tabs -->
+        <v-card class="pa-2 rounded-2xl mb-3">
+          <div class="flex items-center justify-between px-2">
+            <div class="flex items-center gap-2">
+              <v-btn
+                v-for="f in filters"
+                :key="f.value"
+                variant="text"
+                size="small"
+                class="rounded-lg"
+                :class="{ 'filter-active': filter === f.value }"
+                @click="filter = f.value"
+              >
+                {{ f.label }}
+                <v-chip size="x-small" class="ml-1" variant="flat" color="gray">
+                  {{ f.count }}
+                </v-chip>
+              </v-btn>
+            </div>
+            <div class="text-xs text-gray-400">
+              {{ completedCount }}/{{ todos.length }} done
+            </div>
+          </div>
+        </v-card>
+
+        <!-- Todo List -->
+        <div v-if="loading" class="text-center pa-8">
+          <v-progress-circular indeterminate color="primary" />
+        </div>
+
+        <v-slide-y-transition v-else group>
+          <v-card
+            v-for="todo in filteredTodos"
+            :key="todo.id"
+            class="pa-3 rounded-2xl mb-2 hover-lift"
+            :class="{ 'todo-done': todo.is_done }"
+          >
+            <div class="flex items-center gap-3">
+              <v-checkbox
+                :model-value="!!todo.is_done"
+                hide-details
+                density="compact"
+                color="success"
+                class="mt-0"
+                @change="toggleTodo(todo)"
+              />
+              <div class="flex-grow-1 min-w-0">
+                <div
+                  class="text-sm font-medium truncate"
+                  :class="{ 'line-through text-gray-400': todo.is_done }"
+                >
+                  {{ todo.title }}
+                </div>
+                <div class="text-xs text-gray-400 mt-1">
+                  {{ formatDate(todo.created_at) }}
+                </div>
+              </div>
+              <v-btn
+                icon
+                variant="text"
+                size="small"
+                color="error"
+                class="opacity-50 hover-opacity-100"
+                @click="deleteTodo(todo)"
+              >
+                <v-icon size="18">mdi-delete-outline</v-icon>
+              </v-btn>
+            </div>
+          </v-card>
+        </v-slide-y-transition>
+
+        <!-- Empty state -->
+        <div v-if="!loading && filteredTodos.length === 0" class="text-center pa-8">
+          <v-icon size="48" class="mb-3" color="gray">mdi-checkbox-marked-circle-outline</v-icon>
+          <div class="text-sm text-gray-400">
+            <template v-if="filter === 'all'">Chưa có todo nào. Hãy thêm một công việc mới!</template>
+            <template v-else-if="filter === 'active'">Không có todo nào đang active</template>
+            <template v-else>Chưa có todo nào hoàn thành</template>
+          </div>
+        </div>
+      </v-container>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted } from 'vue';
+import AppBar from '../components/AppBar.vue';
+import { useTodoStore } from '../stores/todo';
+
+const todoStore = useTodoStore();
+const newTodoTitle = ref('');
+const filter = ref('all');
+
+const filters = computed(() => [
+  { label: 'Tất cả', value: 'all', count: todos.value.length },
+  { label: 'Cần làm', value: 'active', count: todos.value.filter(t => !t.is_done).length },
+  { label: 'Hoàn thành', value: 'done', count: todos.value.filter(t => t.is_done).length },
+]);
+
+const todos = computed(() => todoStore.todos);
+const loading = computed(() => todoStore.loading);
+
+const filteredTodos = computed(() => {
+  if (filter.value === 'active') return todos.value.filter(t => !t.is_done);
+  if (filter.value === 'done') return todos.value.filter(t => t.is_done);
+  return todos.value;
+});
+
+const completedCount = computed(() => todos.value.filter(t => t.is_done).length);
+
+function formatDate(date) {
+  if (!date) return '';
+  return new Date(date).toLocaleDateString('vi-VN', {
+    hour: '2-digit', minute: '2-digit',
+    day: '2-digit', month: '2-digit', year: 'numeric',
+  });
+}
+
+async function addTodo() {
+  const title = newTodoTitle.value.trim();
+  if (!title) return;
+  await todoStore.createTodo(title);
+  newTodoTitle.value = '';
+}
+
+async function toggleTodo(todo) {
+  await todoStore.updateTodo(todo.id, { is_done: todo.is_done ? 0 : 1 });
+}
+
+async function deleteTodo(todo) {
+  await todoStore.deleteTodo(todo.id);
+}
+
+onMounted(() => {
+  todoStore.fetchTodos();
+});
+</script>
+
+<style scoped>
+.app-content {
+  padding-top: 64px;
+}
+
+.todo-done {
+  opacity: 0.65;
+}
+
+.filter-active {
+  background: rgba(30, 60, 114, 0.1) !important;
+  color: #1E3C72 !important;
+  font-weight: 600 !important;
+}
+
+.hover-opacity-100:hover {
+  opacity: 1 !important;
+}
+</style>

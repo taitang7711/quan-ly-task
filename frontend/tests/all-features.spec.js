@@ -101,7 +101,14 @@ test.describe('2. Navigation', () => {
     await expect(page.locator('h1:has-text("Cài đặt AI")')).toBeVisible();
   });
 
-  test('2.6 Open Category Manager', async ({ page, request }) => {
+  test('2.6 Navigate to Todo List', async ({ page, request }) => {
+    await setupPage(page, request);
+    await page.locator('.nav-btn:has-text("Todo")').click();
+    await expect(page).toHaveURL('/todos');
+    await expect(page.locator('h1:has-text("Todo List")')).toBeVisible();
+  });
+
+  test('2.7 Open Category Manager', async ({ page, request }) => {
     await setupPage(page, request);
     await page.locator('.nav-btn:has-text("Quản lý")').click();
     await expect(page.locator('h2:has-text("Quản lý danh mục")')).toBeVisible();

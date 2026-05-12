@@ -10,6 +10,7 @@ const subcategoryRoutes = require('./routes/subcategories');
 const taskRoutes = require('./routes/tasks');
 const aiRoutes = require('./routes/ai');
 const reportRoutes = require('./routes/reports');
+const todoRoutes = require('./routes/todos');
 const { startReportScheduler } = require('./routes/reports');
 
 const app = express();
@@ -39,6 +40,7 @@ app.use('/api/subcategories', subcategoryRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/todos', todoRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
