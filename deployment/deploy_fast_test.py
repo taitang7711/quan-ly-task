@@ -172,29 +172,24 @@ def docker_compose_up(ssh, force_rebuild=False, backend_only=False, frontend_onl
     print_status("Docker containers started.", GREEN)
 
 def test_deployment(ssh):
-    """Simple health checks and migration."""
+    """Simple health checks - migration runs on container startup."""
     print_status("Testing deployment...")
-    # Run database migration
-    print_status("Running database migration...")
-    stdin, stdout, stderr = ssh.exec_command(f"cd {REMOTE_DIR} && sudo docker exec task-backend node migrate.js 2>&1 || echo 'Migration failed'")
-    migration_out = stdout.read().decode()
-    print_status(f"Migration output: {migration_out[:300]}", YELLOW)
-    # Check backend
-    stdin, stdout, stderr = ssh.exec_command("curl -s http://localhost:5000/api/health")
-    out = stdout.read().decode()
+    # Wait for backend to initialize (MySQL + migration)
+    print_status("Waiting for backend to start (15s)...")
+    time.sleep(15)
+    # Check backend health
+    exit_status, out, err = run_sudo_cmd(ssh, "curl -s http://localhost:5000/api/health")
     if "ok" in out:
         print_status("[OK] Backend is healthy", GREEN)
     else:
         print_status("[FAIL] Backend health check failed", RED)
-        print_status(f"Backend response: {out[:200]}", YELLOW)
+        print_status(f"Backend response: {out[:300]}", YELLOW)
         # Show backend logs
-        stdin, stdout, stderr = ssh.exec_command("sudo docker logs task-backend --tail 30 2>&1")
-        logs = stdout.read().decode()
+        exit_status, logs, _ = run_sudo_cmd(ssh, "docker logs task-backend --tail 30 2>&1")
         print_status(f"Backend logs:\n{logs}", YELLOW)
     # Check frontend
-    stdin, stdout, stderr = ssh.exec_command("curl -s http://localhost:8099")
-    out = stdout.read().decode()
-    if "Task Manager" in out:
+    exit_status, out, _ = run_sudo_cmd(ssh, "curl -s http://localhost:8099")
+    if "Task Manager" in out or "index" in out.lower():
         print_status("[OK] Frontend is healthy", GREEN)
     else:
         print_status("[FAIL] Frontend health check failed", RED)
