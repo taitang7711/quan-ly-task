@@ -303,10 +303,12 @@ function updateLocalLists() {
 }
 
 // Handle vuedraggable @change event
+// IMPORTANT: Only handle 'added' (item dropped from another column) and 'moved' (reorder within column).
+// The 'removed' event fires on the SOURCE column when an item is dragged OUT.
+// If we handle 'removed', we'd move the item back to the source status — that's WRONG.
+// The destination column's 'added' event handles the actual move.
 async function onDragChange(event, newStatusName) {
-  // The event has: { added, removed, moved }
-  // Each has: { element, newIndex, oldIndex }
-  const change = event.added || event.moved || event.removed;
+  const change = event.added || event.moved;
   if (!change) return;
 
   const item = change.element;
@@ -319,32 +321,26 @@ async function onDragChange(event, newStatusName) {
     try {
       await taskStore.moveTask(itemId, newStatusName, change.newIndex || 0);
       show(`Đã di chuyển task`, 'success');
-      await hardRefresh();
+      await refreshBoard();
     } catch (err) {
       show('Di chuyển task thất bại', 'error');
-      await hardRefresh();
+      await refreshBoard();
     }
   } else if (itemType === 'todo') {
     const isDone = newStatusName === 'Hoàn thành';
     try {
       await todoStore.updateTodo(itemId, { is_done: isDone ? 1 : 0, status: newStatusName });
       show(`Đã cập nhật todo`, 'success');
-      await hardRefresh();
+      await refreshBoard();
     } catch (err) {
       show('Cập nhật todo thất bại', 'error');
-      await hardRefresh();
+      await refreshBoard();
     }
   }
 }
 
-async function hardRefresh() {
-  // Fetch fresh data without calling store actions that auto-fetch
+async function refreshBoard() {
   try {
-    await categoryStore.fetchCategories();
-    categories.value = categoryStore.categories;
-    if (categories.value.length && !activeCategory.value) {
-      activeCategory.value = categories.value[0].id;
-    }
     await Promise.all([
       taskStore.fetchTasks({ category_id: activeCategory.value }),
       todoStore.fetchTodos(activeCategory.value),
@@ -356,7 +352,16 @@ async function hardRefresh() {
 }
 
 async function loadData() {
-  await hardRefresh();
+  try {
+    await categoryStore.fetchCategories();
+    categories.value = categoryStore.categories;
+    if (categories.value.length && !activeCategory.value) {
+      activeCategory.value = categories.value[0].id;
+    }
+    await refreshBoard();
+  } catch (e) {
+    console.error('Load error:', e);
+  }
 }
 
 function openWorkItemModal(item = null, type = 'task') {
@@ -385,7 +390,7 @@ async function quickAddTask(statusName) {
     newTaskTitle[statusName] = '';
     showAddForm[statusName] = false;
     show(`Đã thêm "${title}"`, 'success');
-    await hardRefresh();
+    await refreshBoard();
   } catch (err) {
     show('Lỗi khi thêm task', 'error');
   } finally {
@@ -402,15 +407,15 @@ async function onItemSaved() {
   await hardRefresh();
 }
 
-socket.on('task_updated', () => hardRefresh());
-socket.on('task_created', () => hardRefresh());
-socket.on('task_deleted', () => hardRefresh());
-socket.on('todo_updated', () => hardRefresh());
-socket.on('todo_created', () => hardRefresh());
-socket.on('todo_deleted', () => hardRefresh());
-socket.on('category_status_created', () => hardRefresh());
-socket.on('category_status_updated', () => hardRefresh());
-socket.on('category_status_deleted', () => hardRefresh());
+socket.on('task_updated', () => refreshBoard());
+socket.on('task_created', () => refreshBoard());
+socket.on('task_deleted', () => refreshBoard());
+socket.on('todo_updated', () => refreshBoard());
+socket.on('todo_created', () => refreshBoard());
+socket.on('todo_deleted', () => refreshBoard());
+socket.on('category_status_created', () => loadData());
+socket.on('category_status_updated', () => loadData());
+socket.on('category_status_deleted', () => loadData());
 
 onMounted(() => {
   loadData();
